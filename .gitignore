@@ -1,0 +1,41 @@
+# Environment & Secret Files (CRITICAL for assignment security)
+*.env
+*.env.*
+!.env.example
+*.pem
+*.pfx
+
+# .NET / ASP.NET Core (src/backend/)
+bin/
+obj/
+*.user
+*.suo
+.vs/
+appsettings.Development.json
+appsettings.Production.json
+
+# Node / React (src/web/)
+node_modules/
+dist/
+build/
+.npm
+*.log
+
+# Flutter / Dart (src/mobile/)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+android/.gradle/
+android/local.properties
+ios/Pods/
+
+# Python / Agentic AI (src/ai-service/)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.pytest_cache/
