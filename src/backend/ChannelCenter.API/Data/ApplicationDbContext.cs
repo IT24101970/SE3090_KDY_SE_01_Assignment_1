@@ -10,6 +10,13 @@ public class ApplicationDbContext : DbContext
 
     // This property tells EF Core to create a 'Patients' table
     public DbSet<Patient> Patients { get; set; } 
+
+    // 3. Medical Triage & Specialist Matching
+    public DbSet<Specialty> Specialties { get; set; }
+    public DbSet<PreConsultationQuestionnaire> PreConsultationQuestionnaires { get; set; }
+    public DbSet<TriageAssessment> TriageAssessments { get; set; }
+    public DbSet<SymptomLog> SymptomLogs { get; set; }
+    public DbSet<Referral> Referrals { get; set; }
     
     // 4. Admin Overview
     public DbSet<AgentWorkflow> AgentWorkflows { get; set; }

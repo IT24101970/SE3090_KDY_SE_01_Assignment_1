@@ -23,3 +23,19 @@ public enum ApoinmentStatus
     Confirmed,
     Cancelled
 }
+
+// 3. Medical Triage & Specialist Matching
+public enum UrgencyLevel
+{
+    Low,
+    Medium,
+    High,
+    Emergency
+}
+
+public enum ReferralStatus
+{
+    Generated,
+    Reviewed,
+    Assigned
+}
