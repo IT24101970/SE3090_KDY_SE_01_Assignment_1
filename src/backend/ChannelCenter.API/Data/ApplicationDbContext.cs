@@ -10,4 +10,9 @@ public class ApplicationDbContext : DbContext
 
     // This property tells EF Core to create a 'Patients' table
     public DbSet<Patient> Patients { get; set; } 
+    
+    // 4. Admin Overview
+    public DbSet<AgentWorkflow> AgentWorkflows { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<AdminApproval> AdminApprovals { get; set; }
 }
