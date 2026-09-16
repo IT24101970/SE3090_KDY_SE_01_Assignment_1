@@ -39,3 +39,19 @@ public enum ReferralStatus
     Reviewed,
     Assigned
 }
+
+
+//student 2 
+public enum LeaveStatus
+{
+    Pending,
+    Approved,
+    Rejected
+}
+
+public enum AttendanceStatus
+{
+    Pending,
+    Present,
+    NoShow
+}

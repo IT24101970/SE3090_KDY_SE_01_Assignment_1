@@ -22,4 +22,23 @@ public class ApplicationDbContext : DbContext
     public DbSet<AgentWorkflow> AgentWorkflows { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<AdminApproval> AdminApprovals { get; set; }
+
+
+
+    // Student 2: Doctor Scheduling & Consultation Management
+    public DbSet<Doctor> Doctors { get; set; } = null!;
+    public DbSet<ConsultationRoom> ConsultationRooms { get; set; } = null!;
+    public DbSet<DoctorSchedule> DoctorSchedules { get; set; } = null!;
+    public DbSet<DoctorLeave> DoctorLeaves { get; set; } = null!;
+    public DbSet<Consultation> Consultations { get; set; } = null!;
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Explicitly map PrescriptionData to PostgreSQL JSONB column type
+        modelBuilder.Entity<Consultation>()
+            .Property(c => c.PrescriptionData)
+            .HasColumnType("jsonb");
+    }
 }
