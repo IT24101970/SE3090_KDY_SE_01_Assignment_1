@@ -9,8 +9,7 @@ public class AuditLog
     public string AgentName { get; set; } = string.Empty;
     public string ToolCalled { get; set; } = string.Empty;
     
-    // This tells PostgreSQL to format this string as a JSONB column
-    [Column(TypeName = "jsonb")]
+    //JSONB stored in the database
     public string ToolOutput { get; set; } = "{}"; 
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

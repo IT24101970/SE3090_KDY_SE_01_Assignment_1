@@ -14,4 +14,5 @@ public class AdminApproval
 
     // Navigation Property
     public AgentWorkflow Workflow { get; set; } = null!;
+    public User AdminUser { get; set; } = null!;
 }

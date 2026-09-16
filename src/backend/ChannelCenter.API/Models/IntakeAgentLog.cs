@@ -12,15 +12,14 @@ public class IntakeAgentLog
     // Which agent tool was invoked: GetPatientHistory | FormatIntakeSummary | ValidatePatientEligibility
     public string ToolCalled { get; set; } = string.Empty;
 
-    // Raw JSON input sent to the tool
-    [Column(TypeName = "jsonb")]
+    // JSON input sent to the tool
     public string InputPayload { get; set; } = "{}";
 
-    // Raw JSON output returned from the tool
-    [Column(TypeName = "jsonb")]
+    // JSON output received from the tool
     public string OutputPayload { get; set; } = "{}";
 
-    public string? SessionNotes { get; set; }                       // Optional human-readable summary
+    // Optional notes about the intake session
+    public string? SessionNotes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

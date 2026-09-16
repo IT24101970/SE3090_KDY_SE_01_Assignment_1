@@ -7,13 +7,19 @@ public class ApplicationDbContext : DbContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) 
         : base(options) { }
-
-    // This property tells EF Core to create a 'Patients' table
+    
+    // Student 1: Patient Management & Appointment Lifecycle
     public DbSet<Patient> Patients { get; set; } 
-      // Student 1: Patient Management & Appointment Lifecycle
-          public DbSet<User> Users { get; set; } = null!;
-          public DbSet<Appointment> Appointments { get; set; } = null!;
-          public DbSet<IntakeAgentLog> IntakeAgentLogs { get; set; } = null!;
+    public DbSet<User> Users { get; set; } = null!;
+    public DbSet<Appointment> Appointments { get; set; } = null!;
+    public DbSet<IntakeAgentLog> IntakeAgentLogs { get; set; } = null!;
+    
+    // Student 2: Doctor Scheduling & Consultation Management
+    public DbSet<Doctor> Doctors { get; set; } = null!;
+    public DbSet<ConsultationRoom> ConsultationRooms { get; set; } = null!;
+    public DbSet<DoctorSchedule> DoctorSchedules { get; set; } = null!;
+    public DbSet<DoctorLeave> DoctorLeaves { get; set; } = null!;
+    public DbSet<Consultation> Consultations { get; set; } = null!;
 
     // 3. Medical Triage & Specialist Matching
     public DbSet<Specialty> Specialties { get; set; }
@@ -26,32 +32,33 @@ public class ApplicationDbContext : DbContext
     public DbSet<AgentWorkflow> AgentWorkflows { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<AdminApproval> AdminApprovals { get; set; }
-
-
-
-    // Student 2: Doctor Scheduling & Consultation Management
-    public DbSet<Doctor> Doctors { get; set; } = null!;
-    public DbSet<ConsultationRoom> ConsultationRooms { get; set; } = null!;
-    public DbSet<DoctorSchedule> DoctorSchedules { get; set; } = null!;
-    public DbSet<DoctorLeave> DoctorLeaves { get; set; } = null!;
-    public DbSet<Consultation> Consultations { get; set; } = null!;
-
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Explicitly map PrescriptionData to PostgreSQL JSONB column type
+        // Component 1: IntakeAgentLog JSONB columns
+        modelBuilder.Entity<IntakeAgentLog>()
+            .Property(i => i.InputPayload)
+            .HasColumnType("jsonb");
+
+        modelBuilder.Entity<IntakeAgentLog>()
+            .Property(i => i.OutputPayload)
+            .HasColumnType("jsonb");
+
+        // Component 2: Consultation JSONB columns
         modelBuilder.Entity<Consultation>()
             .Property(c => c.PrescriptionData)
             .HasColumnType("jsonb");
 
-            // Student 1: Map IntakeAgentLog JSONB columns
-                    modelBuilder.Entity<IntakeAgentLog>()
-                        .Property(i => i.InputPayload)
-                        .HasColumnType("jsonb");
+        // Component 3: PreConsultationQuestionnaire JSONB columns
+        modelBuilder.Entity<PreConsultationQuestionnaire>()
+            .Property(p => p.ResponsesData)
+            .HasColumnType("jsonb");
 
-                    modelBuilder.Entity<IntakeAgentLog>()
-                        .Property(i => i.OutputPayload)
-                        .HasColumnType("jsonb");
+        // Component 4: AuditLog JSONB columns
+        modelBuilder.Entity<AuditLog>()
+            .Property(a => a.ToolOutput)
+            .HasColumnType("jsonb");
     }
 }
