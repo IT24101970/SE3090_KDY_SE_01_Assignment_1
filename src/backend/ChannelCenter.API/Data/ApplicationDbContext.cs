@@ -10,6 +10,10 @@ public class ApplicationDbContext : DbContext
 
     // This property tells EF Core to create a 'Patients' table
     public DbSet<Patient> Patients { get; set; } 
+      // Student 1: Patient Management & Appointment Lifecycle
+          public DbSet<User> Users { get; set; } = null!;
+          public DbSet<Appointment> Appointments { get; set; } = null!;
+          public DbSet<IntakeAgentLog> IntakeAgentLogs { get; set; } = null!;
 
     // 3. Medical Triage & Specialist Matching
     public DbSet<Specialty> Specialties { get; set; }
@@ -40,5 +44,14 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Consultation>()
             .Property(c => c.PrescriptionData)
             .HasColumnType("jsonb");
+
+            // Student 1: Map IntakeAgentLog JSONB columns
+                    modelBuilder.Entity<IntakeAgentLog>()
+                        .Property(i => i.InputPayload)
+                        .HasColumnType("jsonb");
+
+                    modelBuilder.Entity<IntakeAgentLog>()
+                        .Property(i => i.OutputPayload)
+                        .HasColumnType("jsonb");
     }
 }
