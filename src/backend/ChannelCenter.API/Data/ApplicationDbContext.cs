@@ -18,7 +18,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<SymptomLog> SymptomLogs { get; set; }
     public DbSet<Referral> Referrals { get; set; }
     
-    // 4. Admin Overview
+    // Student 4: Admin Overview
     public DbSet<AgentWorkflow> AgentWorkflows { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<AdminApproval> AdminApprovals { get; set; }

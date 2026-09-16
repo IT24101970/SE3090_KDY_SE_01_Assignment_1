@@ -1,3 +1,5 @@
+.idea
+
 # Environment & Secret Files (CRITICAL for assignment security)
 *.env
 *.env.*
