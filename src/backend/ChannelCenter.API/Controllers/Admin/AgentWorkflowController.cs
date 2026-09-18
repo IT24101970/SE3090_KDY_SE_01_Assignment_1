@@ -4,7 +4,7 @@ using ChannelCenter.API.Data;
 using ChannelCenter.API.Models;
 using ChannelCenter.API.DTOs.Admin;
 
-namespace ChannelCenter.API.Controllers;
+namespace ChannelCenter.API.Controllers.Admin;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -100,7 +100,7 @@ public class AgentWorkflowsController : ControllerBase
         var approval = new AdminApproval
         {
             WorkflowId = id,
-            AdminUserId = 1, //TODO: Replace with actual admin user ID from authentication context
+            AdminUserId = 1, // TODO: Replace with actual admin user ID from authentication context
             Decision = request.Decision,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -114,7 +114,7 @@ public class AgentWorkflowsController : ControllerBase
         }
         else if (request.Decision == ApprovalDecision.Rejected)
         {
-            workflow.Status = WorkflowStatus.Completed; 
+            workflow.Status = WorkflowStatus.Terminated; 
         }
     
         workflow.UpdatedAt = DateTime.UtcNow;

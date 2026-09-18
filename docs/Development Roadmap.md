@@ -1,4 +1,4 @@
-###### **Member 1**
+###### **Member 1 - Shashika**
 
 1. Create patient and booking tables. Build endpoints for registration, slot search, and booking generation
 2. Develop the Intake Agent to parse unstructured user input into formatted JSON symptom summaries.
@@ -6,7 +6,7 @@
 
 
 
-###### **Member 2**
+###### **Member 2 - Thanuja**
 
 1. Create schedule, room, and consultation tables. Build endpoints to manage doctor availability and notes
 2. Develop the Schedule Agent to analyze backend availability and propose conflict-free time slots.
@@ -14,7 +14,7 @@
 
 
 
-###### **Member 3**
+###### **Member 3 - Imasha**
 
 1. Create symptom intake and triage tables. Build endpoints for form submission and urgency scoring.
 2. Develop the Triage Agent to safely match symptoms to clinical specialties using backend tools.
@@ -22,7 +22,7 @@
 
 
 
-###### **Member 4**
+###### **Member 4 - Kavindu**
 
 1. Create AI audit and approval tables. Build endpoints for analytics, workflow logs, and admin override actions
 2. Develop the Safety Auditor Agent to validate proposals and trigger the mandatory human approval pause.

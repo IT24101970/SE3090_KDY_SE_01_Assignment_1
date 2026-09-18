@@ -5,7 +5,8 @@ public enum WorkflowStatus
 {
     Running,
     PausedForApproval,
-    Completed
+    Completed,
+    Terminated
 }
 
 public enum ApprovalDecision
