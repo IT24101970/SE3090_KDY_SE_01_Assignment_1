@@ -47,6 +47,8 @@ namespace ChannelCenter.API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AdminUserId");
+
                     b.HasIndex("WorkflowId");
 
                     b.ToTable("AdminApprovals");
@@ -79,6 +81,53 @@ namespace ChannelCenter.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("AgentWorkflows");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.Appointment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AppointmentDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CancelReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DoctorId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PatientId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReasonForVisit")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ScheduleId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorId");
+
+                    b.HasIndex("PatientId");
+
+                    b.HasIndex("ScheduleId");
+
+                    b.ToTable("Appointments");
                 });
 
             modelBuilder.Entity("ChannelCenter.API.Models.AuditLog", b =>
@@ -284,6 +333,45 @@ namespace ChannelCenter.API.Migrations
                     b.ToTable("DoctorSchedules");
                 });
 
+            modelBuilder.Entity("ChannelCenter.API.Models.IntakeAgentLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InputPayload")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("OutputPayload")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("PatientId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionNotes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ToolCalled")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("IntakeAgentLogs");
+                });
+
             modelBuilder.Entity("ChannelCenter.API.Models.Patient", b =>
                 {
                     b.Property<int>("Id")
@@ -295,7 +383,22 @@ namespace ChannelCenter.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime>("DateOfBirth")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("EmergencyContact")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Gender")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NIC")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -303,10 +406,20 @@ namespace ChannelCenter.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
                     b.ToTable("Patients");
                 });
@@ -327,7 +440,7 @@ namespace ChannelCenter.API.Migrations
 
                     b.Property<string>("ResponsesData")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("jsonb");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -474,15 +587,84 @@ namespace ChannelCenter.API.Migrations
                     b.ToTable("TriageAssessments");
                 });
 
+            modelBuilder.Entity("ChannelCenter.API.Models.User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
+                });
+
             modelBuilder.Entity("ChannelCenter.API.Models.AdminApproval", b =>
                 {
+                    b.HasOne("ChannelCenter.API.Models.User", "AdminUser")
+                        .WithMany()
+                        .HasForeignKey("AdminUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("ChannelCenter.API.Models.AgentWorkflow", "Workflow")
                         .WithMany("AdminApprovals")
                         .HasForeignKey("WorkflowId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("AdminUser");
+
                     b.Navigation("Workflow");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.Appointment", b =>
+                {
+                    b.HasOne("ChannelCenter.API.Models.Doctor", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ChannelCenter.API.Models.Patient", "Patient")
+                        .WithMany("Appointments")
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ChannelCenter.API.Models.DoctorSchedule", "Schedule")
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+
+                    b.Navigation("Patient");
+
+                    b.Navigation("Schedule");
                 });
 
             modelBuilder.Entity("ChannelCenter.API.Models.AuditLog", b =>
@@ -524,6 +706,26 @@ namespace ChannelCenter.API.Migrations
                     b.Navigation("Doctor");
 
                     b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.IntakeAgentLog", b =>
+                {
+                    b.HasOne("ChannelCenter.API.Models.Patient", "Patient")
+                        .WithMany("IntakeAgentLogs")
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.Patient", b =>
+                {
+                    b.HasOne("ChannelCenter.API.Models.User", "User")
+                        .WithOne("Patient")
+                        .HasForeignKey("ChannelCenter.API.Models.Patient", "UserId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ChannelCenter.API.Models.Referral", b =>
@@ -590,6 +792,18 @@ namespace ChannelCenter.API.Migrations
                     b.Navigation("Leaves");
 
                     b.Navigation("Schedules");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.Patient", b =>
+                {
+                    b.Navigation("Appointments");
+
+                    b.Navigation("IntakeAgentLogs");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.User", b =>
+                {
+                    b.Navigation("Patient");
                 });
 #pragma warning restore 612, 618
         }

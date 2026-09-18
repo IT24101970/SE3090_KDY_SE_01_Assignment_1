@@ -1,33 +1,40 @@
-**Users:** Id (PK), Role (Admin, Doctor, Patient), Email, PasswordHash, CreatedAt, UpdatedAt[cite: 4].
+# Component 1: Patient Management & Appointment Lifecycle
+**Users:** Id (PK), FullName, Email, PasswordHash, Role (Patient, Doctor, Admin), CreatedAt, UpdatedAt.
 
-**Patients:** Id (PK), UserId (FK), DateOfBirth, EmergencyContact, CreatedAt, UpdatedAt[cite: 4]. 
+**Patients:** Id (PK), UserId (FK), Name, EmergencyContact, DateOfBirth, Gender, PhoneNumber, Email, NIC, CreatedAt, UpdatedAt.
 
-**Appointments:** Id (PK), PatientId (FK), DoctorScheduleId (FK), TriageId (FK), Status (Pending, Confirmed, Cancelled), CreatedAt, UpdatedAt[cite: 4]. 
+**Appointments:** Id (PK), PatientId (FK), DoctorId (FK), ScheduleId (FK), AppointmentDate, Status (Pending, Confirmed, Cancelled), ReasonForVisit, CancelReason, CreatedAt, UpdatedAt.
 
-
-
-**Doctors**: Id (PK), UserId (FK), SpecialtyId (FK), Qualifications, CreatedAt, UpdatedAt[cite: 4].
-
-**DoctorSchedules**: Id (PK), DoctorId (FK), RoomNumber, StartTime, EndTime, MaxPatients, CreatedAt, UpdatedAt[cite: 4].
-
-**Consultations**: Id (PK), AppointmentId (FK), ClinicalNotes, PrescriptionData (JSONB), CreatedAt, UpdatedAt[cite: 4].
+**IntakeAgentLogs:** Id (PK), PatientId (FK), ToolCalled, InputPayload (JSONB), OutputPayload (JSONB), SessionNotes, CreatedAt, UpdatedAt.
 
 
+# Component 2: Doctor Scheduling & Consultation
+**Doctors**: Id (PK), UserId (FK), SpecialtyId (FK), Qualifications, CreatedAt, UpdatedAt.
 
-**Specialties**: Id (PK), Name (e.g., Cardiology, Dermatology), Description, CreatedAt, UpdatedAt[cite: 2, 4].
+**DoctorSchedules**: Id (PK), DoctorId (FK), RoomId (FK), StartTime, EndTime, MaxPatients, CreatedAt, UpdatedAt.
 
-**PreConsultationQuestionnaires**: Id (PK), PatientId (FK), ResponsesData (JSONB), CreatedAt, UpdatedAt[cite: 2, 3].
+**Consultations**: Id (PK), AppointmentId (FK), ClinicalNotes, PrescriptionData (JSONB), AttendanceStatus (Pending, Present, NoShow), CreatedAt, UpdatedAt.
 
-**TriageAssessments**: Id (PK), PatientId (FK), QuestionnaireId (FK), RawSymptoms (Text), UrgencyScore (Integer), UrgencyLevel (Low, Medium, High, Emergency), ReasoningTrace (Text), RecommendedSpecialtyId (FK), CreatedAt, UpdatedAt[cite: 2, 3, 4].
+**ConsultationRooms**: Id (PK), RoomName, Floor, IsActive, CreatedAt, UpdatedAt.
 
-**SymptomLogs**: Id (PK), TriageId (FK), SymptomKeyword, SeverityRating, DurationInDays, CreatedAt, UpdatedAt[cite: 2, 3, 4].
-
-**Referrals**: Id (PK), TriageId (FK), TargetSpecialtyId (FK), Status (Generated, Reviewed, Assigned), CreatedAt, UpdatedAt[cite: 2, 3].
+**DoctorLeaves**: Id (PK), DoctorId (FK), StartDate, EndDate, Reason, Status (Pending, Approved, Rejected), CreatedAt, UpdatedAt.
 
 
+# Component 3: Medical Triage & Specialist Matching
+**Specialties**: Id (PK), Name, Description, CreatedAt, UpdatedAt.
 
-**AgentWorkflows**: Id (PK), Objective, Status (Running, PausedForApproval, Completed), RequiresHumanApproval (Boolean), CreatedAt, UpdatedAt[cite: 4].
+**PreConsultationQuestionnaires**: Id (PK), PatientId (FK), ResponsesData (JSONB), CreatedAt, UpdatedAt.
 
-**AuditLogs**: Id (PK), WorkflowId (FK), AgentName, ToolCalled, ToolOutput (JSONB), CreatedAt, UpdatedAt[cite: 4]. 
+**TriageAssessments**: Id (PK), PatientId (FK), QuestionnaireId (FK), RawSymptoms (Text), UrgencyScore (Integer), UrgencyLevel (Low, Medium, High, Emergency), ReasoningTrace (Text), RecommendedSpecialtyId (FK), CreatedAt, UpdatedAt.
 
-**AdminApprovals**: Id (PK), WorkflowId (FK), AdminUserId (FK), Decision (Approved, Rejected, Revised), CreatedAt, UpdatedAt[cite: 4].
+**SymptomLogs**: Id (PK), TriageId (FK), SymptomKeyword, SeverityRating, DurationInDays, CreatedAt, UpdatedAt.
+
+**Referrals**: Id (PK), TriageId (FK), TargetSpecialtyId (FK), Status (Generated, Reviewed, Assigned), CreatedAt, UpdatedAt.
+
+
+# Component 4: Admin Oversight & AI Safety
+**AgentWorkflows**: Id (PK), Objective, Status (Running, PausedForApproval, Completed), RequiresHumanApproval (Boolean), CreatedAt, UpdatedAt.
+
+**AuditLogs**: Id (PK), WorkflowId (FK), AgentName, ToolCalled, ToolOutput (JSONB), CreatedAt, UpdatedAt.
+
+**AdminApprovals**: Id (PK), WorkflowId (FK), AdminUserId (FK), Decision (Approved, Rejected, Revised), CreatedAt, UpdatedAt.
