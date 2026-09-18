@@ -4,7 +4,7 @@ namespace ChannelCenter.API.DTOs.Admin;
 
 public class WorkflowApprovalResponseDto
 {
-    public int ApprovalId { get; set; }
+    public int Id { get; set; }
     public int WorkflowId { get; set; }
     public ApprovalDecision Decision { get; set; }
     
