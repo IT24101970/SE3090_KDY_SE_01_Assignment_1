@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
@@ -7,7 +8,8 @@ using ChannelCenter.API.DTOs.Admin;
 namespace ChannelCenter.API.Controllers.Admin;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/admin/overrides")]
+//[Route("api/[controller]")]
 public class AdminOverrideController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -17,7 +19,7 @@ public class AdminOverrideController : ControllerBase
         _context = context;
     }
 
-    // POST: api/adminOverrides/workflows/{id}/cancel
+    // POST: api/admin/overrides/workflows/{id}/cancel
     [HttpPost("workflows/{id}/cancel")]
     public async Task<IActionResult> CancelWorkflow(int id, [FromBody] OverrideCancelRequestDto request)
     {
@@ -28,19 +30,26 @@ public class AdminOverrideController : ControllerBase
             return NotFound(new { message = $"Workflow with ID {id} not found." });
         }
 
-        if (workflow.Status == WorkflowStatus.Completed)
+        if (workflow.Status == WorkflowStatus.Completed || workflow.Status == WorkflowStatus.Terminated)
         {
-            return BadRequest(new { message = "Cannot cancel an already completed workflow." });
+            return BadRequest(new { message = $"Cannot cancel a workflow that is already {workflow.Status}." });
         }
 
-        // Log the manual cancellation as an audit entry
+        // Log the manual cancellation as an audit entry with valid JSON payload
         var auditEntry = new AuditLog
         {
-            Id = workflow.Id,
+            WorkflowId = workflow.Id,
             AgentName = "SystemAdmin",
             ToolCalled = "ManualOverride_Cancel",
-            ToolOutput = $"Admin cancelled workflow. Reason: {request.Reason}",
-            CreatedAt = DateTime.UtcNow
+            ToolOutput = JsonSerializer.Serialize(new
+            {
+                action = "ManualOverride_Cancel",
+                workflowId = workflow.Id,
+                reason = request.Reason,
+                timestamp = DateTime.UtcNow
+            }),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
         
         _context.AuditLogs.Add(auditEntry);
@@ -58,7 +67,7 @@ public class AdminOverrideController : ControllerBase
         });
     }
 
-    // POST: api/adminOverrides/workflows/{id}/reassign
+    // POST: api/admin/overrides/workflows/{id}/reassign
     [HttpPost("workflows/{id}/reassign")]
     public async Task<IActionResult> ReassignWorkflow(int id, [FromBody] OverrideReassignRequestDto request)
     {
@@ -69,13 +78,27 @@ public class AdminOverrideController : ControllerBase
             return NotFound(new { message = $"Workflow with ID {id} not found." });
         }
 
+        if (workflow.Status == WorkflowStatus.Completed)
+        {
+            return BadRequest(new { message = "Cannot reassign an already completed workflow." });
+        }
+
+        // Note: Terminated workflows can be manually reassigned by a system admin
         var auditEntry = new AuditLog
         {
-            Id = workflow.Id,
+            WorkflowId = workflow.Id,
             AgentName = "SystemAdmin",
             ToolCalled = "ManualOverride_Reassign",
-            ToolOutput = $"Admin reassigned to Doctor ID {request.TargetDoctorId}. Reason: {request.Reason}",
-            CreatedAt = DateTime.UtcNow
+            ToolOutput = JsonSerializer.Serialize(new
+            {
+                action = "ManualOverride_Reassign",
+                workflowId = workflow.Id,
+                targetDoctorId = request.TargetDoctorId,
+                reason = request.Reason,
+                timestamp = DateTime.UtcNow
+            }),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
         
         _context.AuditLogs.Add(auditEntry);

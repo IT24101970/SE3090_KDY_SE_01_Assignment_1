@@ -7,4 +7,6 @@ public class WorkflowApprovalRequestDto
 {
     [Required]
     public ApprovalDecision Decision { get; set; }
+
+    public int? AdminUserId { get; set; }
 }

@@ -7,7 +7,8 @@ using ChannelCenter.API.DTOs.Admin;
 namespace ChannelCenter.API.Controllers.Admin;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/admin/workflows")]
+//[Route("api/[controller]")]
 public class AgentWorkflowsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -17,46 +18,43 @@ public class AgentWorkflowsController : ControllerBase
         _context = context;
     }
 
-    // GET: api/workflows
+    // GET: api/admin/workflows (optionally filter by ?status=PausedForApproval)
     [HttpGet]
-    public async Task<IActionResult> GetWorkflows()
+    public async Task<IActionResult> GetWorkflows([FromQuery] WorkflowStatus? status = null)
     {
-        return Ok(new {message = "Workflows endpoint is working!"});
-    }
+        var query = _context.AgentWorkflows.AsNoTracking();
 
-    // GET: api/workflows/all
-    [HttpGet("all")]
-    public async Task<IActionResult> GetAllWorkflows()
-    {
-        var workflows = await _context.AgentWorkflows
-            .Include(w => w.AuditLogs)
-            .ToListAsync();
-
-        var workflowDtos = workflows.Select(w => new AgentWorkflowResponseDto
+        if (status.HasValue)
         {
-            Id = w.Id,
-            Objective = w.Objective,
-            Status = w.Status,
-            RequiresHumanApproval = w.RequiresHumanApproval,
-            CreatedAt = w.CreatedAt,
-            // AuditLogs = w.AuditLogs.Select(a => new WorkflowAuditResponseDto
-            // {
-            //     Id = a.Id,
-            //     AgentName = a.AgentName,
-            //     ToolCalled = a.ToolCalled,
-            //     ToolOutput = a.ToolOutput,
-            //     CreatedAt = a.CreatedAt
-            // }).ToList()
-        }).ToList();
+            query = query.Where(w => w.Status == status.Value);
+        }
+
+        // Direct projection: only selects columns needed, avoiding loading AuditLogs into memory
+        var workflowDtos = await query
+            .OrderByDescending(w => w.CreatedAt)
+            .Select(w => new AgentWorkflowResponseDto
+            {
+                Id = w.Id,
+                Objective = w.Objective,
+                Status = w.Status,
+                RequiresHumanApproval = w.RequiresHumanApproval,
+                CreatedAt = w.CreatedAt
+            })
+            .ToListAsync();
 
         return Ok(workflowDtos);
     }
+
+    // Kept for backward compatibility
+    [HttpGet("all")]
+    public Task<IActionResult> GetAllWorkflows([FromQuery] WorkflowStatus? status = null) => GetWorkflows(status);
     
-    // GET: api/workflows/{id}
+    // GET: api/admin/workflows/{id}
     [HttpGet("{id}")]
     public async Task<IActionResult> GetWorkflowById(int id)
     {
         var workflow = await _context.AgentWorkflows
+            .AsNoTracking()
             .Include(w => w.AuditLogs)
             .FirstOrDefaultAsync(w => w.Id == id);
 
@@ -72,20 +70,22 @@ public class AgentWorkflowsController : ControllerBase
             Status = workflow.Status,
             RequiresHumanApproval = workflow.RequiresHumanApproval,
             CreatedAt = workflow.CreatedAt,
-            AuditLogs = workflow.AuditLogs.Select(a => new WorkflowAuditResponseDto
-            {
-                Id = a.Id,
-                AgentName = a.AgentName,
-                ToolCalled = a.ToolCalled,
-                ToolOutput = a.ToolOutput,
-                CreatedAt = a.CreatedAt
-            }).ToList()
+            AuditLogs = workflow.AuditLogs
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => new WorkflowAuditResponseDto
+                {
+                    Id = a.Id,
+                    AgentName = a.AgentName,
+                    ToolCalled = a.ToolCalled,
+                    ToolOutput = a.ToolOutput,
+                    CreatedAt = a.CreatedAt
+                }).ToList()
         };
 
         return Ok(workflowDto);
     }
     
-    // POST: api/workflows/{id}/approve
+    // POST: api/admin/workflows/{id}/approve
     [HttpPost("{id}/approve")]
     public async Task<IActionResult> ApproveWorkflow(int id, [FromBody] WorkflowApprovalRequestDto request)
     {
@@ -96,11 +96,29 @@ public class AgentWorkflowsController : ControllerBase
             return NotFound(new { message = $"Workflow with ID {id} not found." });
         }
 
+        // Validate state transitions: Cannot approve or reject already finished workflows
+        if (workflow.Status == WorkflowStatus.Completed || workflow.Status == WorkflowStatus.Terminated)
+        {
+            return BadRequest(new { message = $"Cannot make approval decisions on a workflow that is already {workflow.Status}." });
+        }
+
+        // Resolve AdminUserId safely from request or database
+        int adminUserId = request.AdminUserId ?? 1;
+        if (!request.AdminUserId.HasValue)
+        {
+            var adminUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Role == UserRole.Admin)
+                            ?? await _context.Users.AsNoTracking().FirstOrDefaultAsync();
+            if (adminUser != null)
+            {
+                adminUserId = adminUser.Id;
+            }
+        }
+
         // 1. Create the new approval log entry
         var approval = new AdminApproval
         {
             WorkflowId = id,
-            AdminUserId = 1, // TODO: Replace with actual admin user ID from authentication context
+            AdminUserId = adminUserId,
             Decision = request.Decision,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -108,6 +126,7 @@ public class AgentWorkflowsController : ControllerBase
 
         _context.AdminApprovals.Add(approval);
 
+        // 2. Transition workflow state based on decision
         if (request.Decision == ApprovalDecision.Approved)
         {
             workflow.Status = WorkflowStatus.Running; 
@@ -115,6 +134,10 @@ public class AgentWorkflowsController : ControllerBase
         else if (request.Decision == ApprovalDecision.Rejected)
         {
             workflow.Status = WorkflowStatus.Terminated; 
+        }
+        else if (request.Decision == ApprovalDecision.Revised)
+        {
+            workflow.Status = WorkflowStatus.PausedForApproval;
         }
     
         workflow.UpdatedAt = DateTime.UtcNow;
