@@ -20,10 +20,10 @@ public class AdminOverrideController : ControllerBase
     }
 
     // Convenience constructor for tests utilizing in-memory DbContext directly
-    public AdminOverrideController(ApplicationDbContext context)
-        : this(new AdminOverrideService(context))
-    {
-    }
+    // public AdminOverrideController(ApplicationDbContext context)
+    //     : this(new AdminOverrideService(context))
+    // {
+    // }
 
     // POST: api/admin/overrides/workflows/{id}/cancel
     [HttpPost("workflows/{id}/cancel")]

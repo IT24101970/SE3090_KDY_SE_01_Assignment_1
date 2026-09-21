@@ -21,10 +21,10 @@ public class AgentWorkflowsController : ControllerBase
     }
 
     // Convenience constructor for tests utilizing in-memory DbContext directly
-    public AgentWorkflowsController(ApplicationDbContext context)
-        : this(new AgentWorkflowService(context))
-    {
-    }
+    // public AgentWorkflowsController(ApplicationDbContext context)
+    //     : this(new AgentWorkflowService(context))
+    // {
+    // }
 
     // GET: api/admin/workflows (optionally filter by ?status=PausedForApproval)
     [HttpGet]

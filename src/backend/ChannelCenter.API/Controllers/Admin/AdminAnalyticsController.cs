@@ -17,10 +17,10 @@ public class AdminAnalyticsController : ControllerBase
         _analyticsService = analyticsService;
     }
 
-    public AdminAnalyticsController(ApplicationDbContext context)
-        : this(new AdminAnalyticsService(context))
-    {
-    }
+    // public AdminAnalyticsController(ApplicationDbContext context)
+    //     : this(new AdminAnalyticsService(context))
+    // {
+    // }
 
     // GET: api/admin/analytics/overview
     [HttpGet("overview")]
