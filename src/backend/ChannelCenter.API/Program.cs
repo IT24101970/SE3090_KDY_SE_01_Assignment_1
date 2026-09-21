@@ -1,17 +1,22 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using ChannelCenter.API.Data;
+using ChannelCenter.API.Services.Admin;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Grab the connection string from configuration
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+// ── Connection String ────────────────────────────────────────────────────────
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Host=localhost;Database=channel_center_db;Username=postgres;Password=postgres";
 
-// Add services to the container.
+// ── Core MVC & Routing ───────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
-// Configure CORS for the frontend applications (React on Vite / Flutter Web)
+// ── CORS ─────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -23,17 +28,76 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// ── JWT Authentication ────────────────────────────────────────────────────────
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var secretKey  = jwtSection["SecretKey"] ?? "ChannelCenterDevSecret_MustBe32CharsOrMore!";
+var issuer     = jwtSection["Issuer"]    ?? "ChannelCenterAPI";
+var audience   = jwtSection["Audience"] ?? "ChannelCenterClients";
 
-// Register the DbContext to use PostgreSQL
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer           = true,
+            ValidateAudience         = true,
+            ValidateLifetime         = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer              = issuer,
+            ValidAudience            = audience,
+            IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+// ── Swagger / OpenAPI ─────────────────────────────────────────────────────────
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title       = "ChannelCenter API",
+        Version     = "v1",
+        Description = "AI-Integrated Hospital Channeling System – Component 4: Admin Oversight & AI Safety"
+    });
+
+    // Add Bearer token support button in Swagger UI
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name         = "Authorization",
+        Type         = SecuritySchemeType.Http,
+        Scheme       = "Bearer",
+        BearerFormat = "JWT",
+        In           = ParameterLocation.Header,
+        Description  = "Enter your JWT token. Example: Bearer eyJhbGci..."
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+// ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+// ── Admin Service Layer (Component 4) ─────────────────────────────────────────
+builder.Services.AddScoped<IAgentWorkflowService, AgentWorkflowService>();
+builder.Services.AddScoped<IAdminOverrideService, AdminOverrideService>();
+builder.Services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+
+// ── Build App ─────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -41,11 +105,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseCors("AllowFrontend");
-
+app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
+
+// Seed database with initial data (development only, idempotent)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await DataSeeder.SeedAsync(db);
+}
 
 app.Run();

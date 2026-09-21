@@ -60,5 +60,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<AuditLog>()
             .Property(a => a.ToolOutput)
             .HasColumnType("jsonb");
+
+        // NOTE: Seed data is managed by DataSeeder.cs (called from Program.cs at startup).
+        // Keeping seed data out of HasData prevents it from polluting in-memory test databases.
     }
 }

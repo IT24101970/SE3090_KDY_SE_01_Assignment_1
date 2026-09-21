@@ -1,0 +1,190 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using ChannelCenter.API.Data;
+using ChannelCenter.API.DTOs.Admin;
+using ChannelCenter.API.Models;
+
+namespace ChannelCenter.API.Services.Admin;
+
+public class AgentWorkflowService : IAgentWorkflowService
+{
+    private readonly ApplicationDbContext _context;
+
+    public AgentWorkflowService(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<IEnumerable<AgentWorkflowResponseDto>> GetWorkflowsAsync(WorkflowStatus? status = null)
+    {
+        var query = _context.AgentWorkflows.AsNoTracking();
+
+        if (status.HasValue)
+        {
+            query = query.Where(w => w.Status == status.Value);
+        }
+
+        return await query
+            .OrderByDescending(w => w.CreatedAt)
+            .Select(w => new AgentWorkflowResponseDto
+            {
+                Id = w.Id,
+                Objective = w.Objective,
+                Status = w.Status,
+                RequiresHumanApproval = w.RequiresHumanApproval,
+                CreatedAt = w.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<AgentWorkflowResponseDto?> GetWorkflowByIdAsync(int id)
+    {
+        var workflow = await _context.AgentWorkflows
+            .AsNoTracking()
+            .Include(w => w.AuditLogs)
+            .FirstOrDefaultAsync(w => w.Id == id);
+
+        if (workflow == null)
+        {
+            return null;
+        }
+
+        return new AgentWorkflowResponseDto
+        {
+            Id = workflow.Id,
+            Objective = workflow.Objective,
+            Status = workflow.Status,
+            RequiresHumanApproval = workflow.RequiresHumanApproval,
+            CreatedAt = workflow.CreatedAt,
+            AuditLogs = workflow.AuditLogs
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => new WorkflowAuditResponseDto
+                {
+                    Id = a.Id,
+                    AgentName = a.AgentName,
+                    ToolCalled = a.ToolCalled,
+                    ToolOutput = a.ToolOutput,
+                    CreatedAt = a.CreatedAt
+                }).ToList()
+        };
+    }
+
+    public async Task<AgentWorkflowResponseDto> CreateWorkflowAsync(CreateWorkflowRequestDto request)
+    {
+        var workflow = new AgentWorkflow
+        {
+            Objective = request.Objective,
+            Status = WorkflowStatus.Running,
+            RequiresHumanApproval = request.RequiresHumanApproval,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _context.AgentWorkflows.Add(workflow);
+        await _context.SaveChangesAsync();
+
+        return new AgentWorkflowResponseDto
+        {
+            Id = workflow.Id,
+            Objective = workflow.Objective,
+            Status = workflow.Status,
+            RequiresHumanApproval = workflow.RequiresHumanApproval,
+            CreatedAt = workflow.CreatedAt
+        };
+    }
+
+    public async Task<(bool Success, string? ErrorMessage, WorkflowApprovalResponseDto? Response)> ApproveWorkflowAsync(
+        int id, WorkflowApprovalRequestDto request, int adminUserId)
+    {
+        var workflow = await _context.AgentWorkflows.FindAsync(id);
+
+        if (workflow == null)
+        {
+            return (false, $"Workflow with ID {id} not found.", null);
+        }
+
+        if (workflow.Status == WorkflowStatus.Completed || workflow.Status == WorkflowStatus.Terminated)
+        {
+            return (false, $"Cannot make approval decisions on a workflow that is already {workflow.Status}.", null);
+        }
+
+        var approval = new AdminApproval
+        {
+            WorkflowId = id,
+            AdminUserId = adminUserId,
+            Decision = request.Decision,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _context.AdminApprovals.Add(approval);
+
+        if (request.Decision == ApprovalDecision.Approved)
+        {
+            workflow.Status = WorkflowStatus.Running;
+        }
+        else if (request.Decision == ApprovalDecision.Rejected)
+        {
+            workflow.Status = WorkflowStatus.Terminated;
+        }
+        else if (request.Decision == ApprovalDecision.Revised)
+        {
+            workflow.Status = WorkflowStatus.PausedForApproval;
+        }
+
+        workflow.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        var responseDto = new WorkflowApprovalResponseDto
+        {
+            Id = approval.Id,
+            WorkflowId = workflow.Id,
+            Decision = approval.Decision,
+            UpdatedWorkflowStatus = workflow.Status,
+            ProcessedAt = approval.CreatedAt
+        };
+
+        return (true, null, responseDto);
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> PauseWorkflowAsync(int id, PauseWorkflowRequestDto request)
+    {
+        var workflow = await _context.AgentWorkflows.FindAsync(id);
+
+        if (workflow == null)
+        {
+            return (false, $"Workflow with ID {id} not found.");
+        }
+
+        if (workflow.Status == WorkflowStatus.Completed || workflow.Status == WorkflowStatus.Terminated)
+        {
+            return (false, $"Cannot pause a workflow that is already {workflow.Status}.");
+        }
+
+        workflow.Status = WorkflowStatus.PausedForApproval;
+        workflow.RequiresHumanApproval = true;
+        workflow.UpdatedAt = DateTime.UtcNow;
+
+        var auditLog = new AuditLog
+        {
+            WorkflowId = workflow.Id,
+            AgentName = request.AgentName,
+            ToolCalled = "SafetyAuditor_PauseAction",
+            ToolOutput = JsonSerializer.Serialize(new
+            {
+                action = "SafetyAuditor_PauseAction",
+                workflowId = workflow.Id,
+                reason = request.Reason,
+                violation = request.ValidationViolation,
+                timestamp = DateTime.UtcNow
+            }),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _context.AuditLogs.Add(auditLog);
+        await _context.SaveChangesAsync();
+
+        return (true, null);
+    }
+}
