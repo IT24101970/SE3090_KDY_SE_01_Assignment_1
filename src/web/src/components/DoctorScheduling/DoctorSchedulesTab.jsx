@@ -43,8 +43,9 @@ export default function DoctorSchedulesTab() {
       if (resRooms.ok) {
         const roomList = await resRooms.json();
         setRooms(roomList);
-        if (roomList.length > 0 && !formData.roomId) {
-          setFormData((f) => ({ ...f, roomId: roomList[0].id }));
+        const activeRoom = roomList.find((r) => r.isActive) || roomList[0];
+        if (activeRoom && !formData.roomId) {
+          setFormData((f) => ({ ...f, roomId: activeRoom.id }));
         }
       }
       if (resLeaves.ok) {
@@ -57,8 +58,9 @@ export default function DoctorSchedulesTab() {
         { id: 2, doctorName: 'Dr. Michael Chen', specialtyName: 'Neurology' }
       ]);
       setRooms([
-        { id: 1, roomName: 'Room 101', floor: '1st Floor' },
-        { id: 2, roomName: 'Room 202', floor: '2nd Floor' }
+        { id: 1, roomName: 'Room 101', floor: '1st Floor', isActive: true },
+        { id: 2, roomName: 'Room 202', floor: '2nd Floor', isActive: true },
+        { id: 4, roomName: 'Room 408', floor: '4th Floor', isActive: false }
       ]);
       setLeaves([
         {
@@ -84,7 +86,6 @@ export default function DoctorSchedulesTab() {
         }
       ];
     } finally {
-      // Merge API schedules with locally saved persistent custom schedules
       const storedCustom = localStorage.getItem(LOCAL_STORAGE_KEY);
       let localCustom = [];
       if (storedCustom) {
@@ -95,7 +96,6 @@ export default function DoctorSchedulesTab() {
         }
       }
 
-      // De-duplicate schedules by ID
       const combinedMap = new Map();
       apiSchedules.forEach((s) => combinedMap.set(s.id, s));
       localCustom.forEach((s) => combinedMap.set(s.id, s));
@@ -119,6 +119,7 @@ export default function DoctorSchedulesTab() {
     }
 
     const selectedDocId = Number(formData.doctorId);
+    const selectedRoomId = Number(formData.roomId);
     const startDt = new Date(formData.startTime);
     const endDt = new Date(formData.endTime);
 
@@ -127,8 +128,17 @@ export default function DoctorSchedulesTab() {
       return;
     }
 
-    // 1. FRONTEND LEAVE CHECK VALIDATION
-    // Check if the selected doctor is on approved leave during the selected dates
+    // 1. FRONTEND ROOM ACTIVE / MAINTENANCE CHECK
+    const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
+    if (selectedRoom && selectedRoom.isActive === false) {
+      setAlert({
+        type: 'error',
+        text: `🚫 Cannot assign schedule! ${selectedRoom.roomName} is currently INACTIVE or UNDER MAINTENANCE.`
+      });
+      return;
+    }
+
+    // 2. FRONTEND DOCTOR LEAVE CHECK
     const doctorOnLeave = leaves.find((l) => {
       if (l.doctorId !== selectedDocId) return false;
       const isApproved = l.status === 1 || l.status === 'Approved';
@@ -148,12 +158,12 @@ export default function DoctorSchedulesTab() {
         type: 'error',
         text: `🚫 Cannot create schedule! ${docObj?.doctorName || 'Doctor'} is on APPROVED LEAVE from ${new Date(doctorOnLeave.startDate).toLocaleDateString()} to ${new Date(doctorOnLeave.endDate).toLocaleDateString()}.`
       });
-      return; // STOP submission
+      return;
     }
 
     const payload = {
       doctorId: selectedDocId,
-      roomId: Number(formData.roomId),
+      roomId: selectedRoomId,
       startTime: startDt.toISOString(),
       endTime: endDt.toISOString(),
       maxPatients: Number(formData.maxPatients)
@@ -169,31 +179,26 @@ export default function DoctorSchedulesTab() {
       const result = await res.json();
 
       if (!res.ok) {
-        // Show actual backend conflict error message (e.g. Doctor on leave or Room occupied)
         setAlert({ type: 'error', text: `⚠️ ${result.message || 'Failed to schedule session.'}` });
         return;
       }
 
-      // Success
       setAlert({ type: 'success', text: '✨ Schedule session created & saved in PostgreSQL Database!' });
       
-      // Save created schedule into local persistent storage
       const updatedSchedules = [...schedules, result];
       setSchedules(updatedSchedules);
       saveLocalCustomSchedules(result);
     } catch (err) {
-      // Local fallback append with persistence
       const doc = doctors.find((d) => d.id === selectedDocId);
-      const rm = rooms.find((r) => r.id === Number(formData.roomId));
 
       const newSchedule = {
         id: Date.now(),
         doctorId: selectedDocId,
         doctorName: doc?.doctorName || 'Dr. Specialist',
         specialtyName: doc?.specialtyName || 'General',
-        roomId: Number(formData.roomId),
-        roomName: rm?.roomName || 'Room 101',
-        floor: rm?.floor || '1st Floor',
+        roomId: selectedRoomId,
+        roomName: selectedRoom?.roomName || 'Room 101',
+        floor: selectedRoom?.floor || '1st Floor',
         startTime: formData.startTime,
         endTime: formData.endTime,
         maxPatients: formData.maxPatients
@@ -205,6 +210,31 @@ export default function DoctorSchedulesTab() {
 
       setAlert({ type: 'success', text: '✨ Schedule session created and added to session roster!' });
     }
+  };
+
+  const handleDeleteSchedule = async (id) => {
+    try {
+      await fetch(`${API_BASE}/doctorsschedules/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (e) {
+      console.warn('Backend DELETE error or fallback mode:', e);
+    }
+
+    const filtered = schedules.filter((s) => s.id !== id);
+    setSchedules(filtered);
+
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        const list = JSON.parse(stored).filter((s) => s.id !== id);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+      }
+    } catch (e) {
+      console.error('Failed to update localStorage after delete', e);
+    }
+
+    setAlert({ type: 'success', text: '🗑️ Active Channel Session removed successfully!' });
   };
 
   const saveLocalCustomSchedules = (newItem) => {
@@ -255,8 +285,8 @@ export default function DoctorSchedulesTab() {
               onChange={(e) => setFormData({ ...formData, roomId: e.target.value })}
             >
               {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.roomName} ({r.floor})
+                <option key={r.id} value={r.id} disabled={!r.isActive}>
+                  {r.roomName} ({r.floor}){!r.isActive ? ' — [MAINTENANCE / INACTIVE]' : ''}
                 </option>
               ))}
             </select>
@@ -326,8 +356,17 @@ export default function DoctorSchedulesTab() {
                   <strong>⏳ End:</strong> {new Date(s.endTime).toLocaleString()}
                 </div>
               </div>
-              <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #e2e8f0', fontSize: '0.85rem', fontWeight: 600, color: 'var(--ds-navy-primary)' }}>
-                👥 Capacity: {s.maxPatients} Patients Allowed
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--ds-navy-primary)' }}>
+                  👥 Capacity: {s.maxPatients} Patients
+                </span>
+                <button
+                  className="ds-btn ds-btn-danger"
+                  style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                  onClick={() => handleDeleteSchedule(s.id)}
+                >
+                  Remove Session
+                </button>
               </div>
             </div>
           ))}

@@ -265,7 +265,14 @@ public class DoctorSchedulingService : IDoctorSchedulingService
             throw new InvalidOperationException("Doctor is on approved leave during the requested schedule time.");
         }
 
-        // 2. Verify Room Availability
+        // 2. Verify Room is Active (not in Maintenance)
+        var room = await _context.ConsultationRooms.FindAsync(dto.RoomId);
+        if (room == null || !room.IsActive)
+        {
+            throw new InvalidOperationException("Selected consultation room is currently inactive or under maintenance.");
+        }
+
+        // 3. Verify Room Availability (no overlap)
         var isRoomAvailable = await CheckRoomAvailabilityAsync(dto.RoomId, dto.StartTime, dto.EndTime);
         if (!isRoomAvailable)
         {
