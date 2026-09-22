@@ -4,12 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ChannelCenter.API.Data;
-<<<<<<< HEAD
 using ChannelCenter.API.Services.Admin;
-using ChannelCenter.API.Services.Triage;//
-=======
+using ChannelCenter.API.Services.Triage;
 using ChannelCenter.API.Services.DoctorScheduling;
->>>>>>> master
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -94,7 +91,6 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-<<<<<<< HEAD
 // ── Medical Triage & Specialist Matching Service Layer (Component 3) ─────────
 builder.Services.AddScoped<ITriageService, TriageService>();
 
@@ -105,11 +101,9 @@ builder.Services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 // ── Build App ─────────────────────────────────────────────────────────────────
-=======
 // Student 2: Register Doctor Scheduling & Consultation Management Service
 builder.Services.AddScoped<IDoctorSchedulingService, DoctorSchedulingService>();
 
->>>>>>> master
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
