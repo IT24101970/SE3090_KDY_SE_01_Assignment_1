@@ -10,6 +10,8 @@ public class Doctor
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation Properties
+    public User? User { get; set; }
+    public Specialty? Specialty { get; set; }
     public ICollection<DoctorSchedule> Schedules { get; set; } = new List<DoctorSchedule>();
     public ICollection<DoctorLeave> Leaves { get; set; } = new List<DoctorLeave>();
 }

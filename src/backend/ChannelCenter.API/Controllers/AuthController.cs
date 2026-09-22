@@ -1,11 +1,14 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using ChannelCenter.API.Data;
-using ChannelCenter.API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using ChannelCenter.API.Data;
+using ChannelCenter.API.DTOs.Auth;
+using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.Auth;
 
 namespace ChannelCenter.API.Controllers;
 
@@ -15,15 +18,76 @@ public class AuthController : ControllerBase
 {
     private readonly IConfiguration _config;
     private readonly ApplicationDbContext _dbContext;
+    private readonly IAuthService _authService;
 
-    public AuthController(IConfiguration config, ApplicationDbContext dbContext)
+    public AuthController(IConfiguration config, ApplicationDbContext dbContext, IAuthService authService)
     {
         _config = config;
         _dbContext = dbContext;
+        _authService = authService;
+    }
+
+    // Convenience constructor for tests
+    public AuthController(IConfiguration config, ApplicationDbContext dbContext)
+        : this(config, dbContext, new AuthService(dbContext, config))
+    {
+    }
+
+    // POST: api/auth/register
+    // Patient onboarding and account registration
+    [HttpPost("register")]
+    public async Task<IActionResult> RegisterPatient([FromBody] PatientRegisterDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var (success, errorMessage, data) = await _authService.RegisterPatientAsync(dto);
+        if (!success)
+        {
+            return BadRequest(new { message = errorMessage });
+        }
+
+        return Ok(data);
+    }
+
+    // POST: api/auth/login
+    // Patient and user login
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] PatientLoginDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var (success, errorMessage, data) = await _authService.LoginAsync(dto);
+        if (!success)
+        {
+            return Unauthorized(new { message = errorMessage });
+        }
+
+        return Ok(data);
+    }
+
+    // GET: api/auth/me
+    // Retrieve current authenticated user and linked patient profile
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> GetCurrentUser()
+    {
+        var (success, errorMessage, data) = await _authService.GetCurrentUserProfileAsync(User);
+        if (!success)
+        {
+            return NotFound(new { message = errorMessage });
+        }
+
+        return Ok(data);
     }
 
     // POST: api/auth/dev-login
-    // Body example: 1
+    // Body example: 1 (Retained for admin development & testing)
     [HttpPost("dev-login")]
     public async Task<IActionResult> GenerateDevToken([FromBody] int adminUserId)
     {

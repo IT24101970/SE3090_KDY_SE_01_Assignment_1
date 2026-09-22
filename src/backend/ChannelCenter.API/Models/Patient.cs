@@ -11,6 +11,9 @@ public class Patient
     public string PhoneNumber { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string NIC { get; set; } = string.Empty;                 // National Identity Card / gov ID
+    public string? BloodGroup { get; set; }                         // e.g., "A+", "O-", etc.
+    public string? Allergies { get; set; }                          // Known allergies
+    public string? MedicalHistory { get; set; }                     // Chronic illnesses, prior conditions
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

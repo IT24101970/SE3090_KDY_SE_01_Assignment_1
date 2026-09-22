@@ -5,8 +5,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.Services.Admin;
+using ChannelCenter.API.Services.Appointment;
+using ChannelCenter.API.Services.Auth;
+using ChannelCenter.API.Services.IntakeAgent;
+using ChannelCenter.API.Services.Patient;
 using ChannelCenter.API.Services.Triage;
-using ChannelCenter.API.Services.DoctorScheduling;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,6 +94,12 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+// ── Patient Management & Appointment Lifecycle (Component 1) ─────────────────
+builder.Services.AddScoped<IPatientService, PatientService>();
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+builder.Services.AddScoped<IIntakeAgentService, IntakeAgentService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
 // ── Medical Triage & Specialist Matching Service Layer (Component 3) ─────────
 builder.Services.AddScoped<ITriageService, TriageService>();
 
@@ -100,15 +109,7 @@ builder.Services.AddScoped<IAdminOverrideService, AdminOverrideService>();
 builder.Services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
-
-// ── Student 2: Doctor Scheduling & Consultation Management Service ─────────────
-builder.Services.AddScoped<IDoctorSchedulingService, DoctorSchedulingService>();
-
 // ── Build App ─────────────────────────────────────────────────────────────────
-// ── Build App ─────────────────────────────────────────────────────────────────
-// Student 2: Register Doctor Scheduling & Consultation Management Service
-builder.Services.AddScoped<IDoctorSchedulingService, DoctorSchedulingService>();
-
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
