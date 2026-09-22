@@ -10,15 +10,32 @@ public static class DataSeeder
 {
     public static async Task SeedAsync(ApplicationDbContext context)
     {
-        // Only seed if the database has no workflows yet (idempotent guard)
-        if (context.AgentWorkflows.Any())
+        // Guard check: skip if database already has doctors seeded
+        if (context.Doctors.Any())
         {
             return;
         }
 
-        var seedDate = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+        var seedDate = DateTime.UtcNow;
 
-        // ── Admin User ──────────────────────────────────────────────────────
+        // ── 1. Seed Specialties ──────────────────────────────────────────────────
+        if (!context.Specialties.Any())
+        {
+            context.Specialties.AddRange(
+                new Specialty { Name = "Cardiology", Description = "Heart and cardiovascular system care", CreatedAt = seedDate, UpdatedAt = seedDate },
+                new Specialty { Name = "Neurology", Description = "Brain and nervous system disorders", CreatedAt = seedDate, UpdatedAt = seedDate },
+                new Specialty { Name = "Pediatrics", Description = "Medical care for infants, children, and adolescents", CreatedAt = seedDate, UpdatedAt = seedDate },
+                new Specialty { Name = "Dermatology", Description = "Skin, hair, and nail treatments", CreatedAt = seedDate, UpdatedAt = seedDate },
+                new Specialty { Name = "Orthopedics", Description = "Bones, joints, and muscular care", CreatedAt = seedDate, UpdatedAt = seedDate }
+            );
+            await context.SaveChangesAsync();
+        }
+
+        var cardio = context.Specialties.First(s => s.Name == "Cardiology");
+        var neuro = context.Specialties.First(s => s.Name == "Neurology");
+        var pedia = context.Specialties.First(s => s.Name == "Pediatrics");
+
+        // ── 2. Seed Users (Doctors & Admin) ───────────────────────────────────────
         if (!context.Users.Any(u => u.Email == "admin@channelcenter.hospital"))
         {
             context.Users.Add(new User
@@ -30,77 +47,171 @@ public static class DataSeeder
                 CreatedAt    = seedDate,
                 UpdatedAt    = seedDate
             });
+        }
+
+        var docUser1 = new User
+        {
+            FullName     = "Dr. Sarah Jenkins",
+            Email        = "sarah.jenkins@channelcenter.hospital",
+            PasswordHash = "hashed_password",
+            Role         = UserRole.Doctor,
+            CreatedAt    = seedDate,
+            UpdatedAt    = seedDate
+        };
+
+        var docUser2 = new User
+        {
+            FullName     = "Dr. Michael Chen",
+            Email        = "michael.chen@channelcenter.hospital",
+            PasswordHash = "hashed_password",
+            Role         = UserRole.Doctor,
+            CreatedAt    = seedDate,
+            UpdatedAt    = seedDate
+        };
+
+        var docUser3 = new User
+        {
+            FullName     = "Dr. Emily Rodriguez",
+            Email        = "emily.rodriguez@channelcenter.hospital",
+            PasswordHash = "hashed_password",
+            Role         = UserRole.Doctor,
+            CreatedAt    = seedDate,
+            UpdatedAt    = seedDate
+        };
+
+        context.Users.AddRange(docUser1, docUser2, docUser3);
+        await context.SaveChangesAsync();
+
+        // ── 3. Seed Doctors (Student 2) ──────────────────────────────────────────
+        var doctor1 = new Doctor
+        {
+            UserId         = docUser1.Id,
+            SpecialtyId    = cardio.Id,
+            Qualifications = "MD, FACC, Board Certified Cardiologist",
+            CreatedAt      = seedDate,
+            UpdatedAt      = seedDate
+        };
+
+        var doctor2 = new Doctor
+        {
+            UserId         = docUser2.Id,
+            SpecialtyId    = neuro.Id,
+            Qualifications = "MBBS, MD (Neurology), PhD",
+            CreatedAt      = seedDate,
+            UpdatedAt      = seedDate
+        };
+
+        var doctor3 = new Doctor
+        {
+            UserId         = docUser3.Id,
+            SpecialtyId    = pedia.Id,
+            Qualifications = "MD, FAAP, Specialist Pediatrician",
+            CreatedAt      = seedDate,
+            UpdatedAt      = seedDate
+        };
+
+        context.Doctors.AddRange(doctor1, doctor2, doctor3);
+        await context.SaveChangesAsync();
+
+        // ── 4. Seed Consultation Rooms (Student 2) ────────────────────────────────
+        var room1 = new ConsultationRoom { RoomName = "Room 101", Floor = "1st Floor - Wing A", IsActive = true, CreatedAt = seedDate, UpdatedAt = seedDate };
+        var room2 = new ConsultationRoom { RoomName = "Room 202", Floor = "2nd Floor - Wing B", IsActive = true, CreatedAt = seedDate, UpdatedAt = seedDate };
+        var room3 = new ConsultationRoom { RoomName = "Room 305", Floor = "3rd Floor - Wing C", IsActive = true, CreatedAt = seedDate, UpdatedAt = seedDate };
+        var room4 = new ConsultationRoom { RoomName = "Room 408", Floor = "4th Floor - Wing D", IsActive = false, CreatedAt = seedDate, UpdatedAt = seedDate };
+
+        context.ConsultationRooms.AddRange(room1, room2, room3, room4);
+        await context.SaveChangesAsync();
+
+        // ── 5. Seed Doctor Schedules (Student 2) ──────────────────────────────────
+        context.DoctorSchedules.AddRange(
+            new DoctorSchedule
+            {
+                DoctorId    = doctor1.Id,
+                RoomId      = room1.Id,
+                StartTime   = DateTime.UtcNow.Date.AddHours(9),
+                EndTime     = DateTime.UtcNow.Date.AddHours(12),
+                MaxPatients = 15,
+                CreatedAt   = seedDate,
+                UpdatedAt   = seedDate
+            },
+            new DoctorSchedule
+            {
+                DoctorId    = doctor2.Id,
+                RoomId      = room2.Id,
+                StartTime   = DateTime.UtcNow.Date.AddHours(13),
+                EndTime     = DateTime.UtcNow.Date.AddHours(16),
+                MaxPatients = 12,
+                CreatedAt   = seedDate,
+                UpdatedAt   = seedDate
+            },
+            new DoctorSchedule
+            {
+                DoctorId    = doctor3.Id,
+                RoomId      = room3.Id,
+                StartTime   = DateTime.UtcNow.Date.AddDays(1).AddHours(10),
+                EndTime     = DateTime.UtcNow.Date.AddDays(1).AddHours(14),
+                MaxPatients = 20,
+                CreatedAt   = seedDate,
+                UpdatedAt   = seedDate
+            }
+        );
+        await context.SaveChangesAsync();
+
+        // ── 6. Seed Doctor Leaves (Student 2) ────────────────────────────────────
+        context.DoctorLeaves.AddRange(
+            new DoctorLeave
+            {
+                DoctorId  = doctor1.Id,
+                StartDate = DateTime.UtcNow.Date.AddDays(5),
+                EndDate   = DateTime.UtcNow.Date.AddDays(8),
+                Reason    = "Attending International Cardiology Conference",
+                Status    = LeaveStatus.Pending,
+                CreatedAt = seedDate,
+                UpdatedAt = seedDate
+            },
+            new DoctorLeave
+            {
+                DoctorId  = doctor2.Id,
+                StartDate = DateTime.UtcNow.Date.AddDays(12),
+                EndDate   = DateTime.UtcNow.Date.AddDays(14),
+                Reason    = "Personal Annual Medical Leave",
+                Status    = LeaveStatus.Approved,
+                CreatedAt = seedDate,
+                UpdatedAt = seedDate
+            }
+        );
+        await context.SaveChangesAsync();
+
+        // ── 7. Seed Consultations (Student 2) ─────────────────────────────────────
+        context.Consultations.AddRange(
+            new Consultation
+            {
+                AppointmentId    = 1001,
+                ClinicalNotes    = "Patient presented with mild arrhythmia. EKG and blood work ordered.",
+                PrescriptionData = "{\"medications\":[\"Metoprolol 25mg - 1x daily\",\"Aspirin 81mg - 1x daily\"],\"instructions\":\"Follow up in 2 weeks\"}",
+                AttendanceStatus = AttendanceStatus.Present,
+                CreatedAt        = seedDate,
+                UpdatedAt        = seedDate
+            },
+            new Consultation
+            {
+                AppointmentId    = 1002,
+                ClinicalNotes    = "Patient reported severe migraine with visual aura.",
+                PrescriptionData = "{\"medications\":[\"Sumatriptan 50mg - as needed\"],\"instructions\":\"Rest in quiet room\"}",
+                AttendanceStatus = AttendanceStatus.Present,
+                CreatedAt        = seedDate,
+                UpdatedAt        = seedDate
+            }
+        );
+        await context.SaveChangesAsync();
+
+        // ── 8. Seed Sample AgentWorkflows ──────────────────────────────────────────
+        if (!context.AgentWorkflows.Any())
+        {
+            var wf1 = new AgentWorkflow { Objective = "Intake & triage for patient with acute chest pain", Status = WorkflowStatus.PausedForApproval, RequiresHumanApproval = true, CreatedAt = seedDate, UpdatedAt = seedDate };
+            var wf2 = new AgentWorkflow { Objective = "Schedule follow-up cardiology consultation for patient #42", Status = WorkflowStatus.PausedForApproval, RequiresHumanApproval = true, CreatedAt = seedDate.AddHours(2), UpdatedAt = seedDate.AddHours(2) };
+            context.AgentWorkflows.AddRange(wf1, wf2);
             await context.SaveChangesAsync();
         }
-
-        // ── Sample AgentWorkflows ────────────────────────────────────────────
-        var wf1 = new AgentWorkflow
-        {
-            Objective             = "Intake & triage for patient with acute chest pain",
-            Status                = WorkflowStatus.PausedForApproval,
-            RequiresHumanApproval = true,
-            CreatedAt             = seedDate,
-            UpdatedAt             = seedDate
-        };
-        var wf2 = new AgentWorkflow
-        {
-            Objective             = "Schedule follow-up cardiology consultation for patient #42",
-            Status                = WorkflowStatus.PausedForApproval,
-            RequiresHumanApproval = true,
-            CreatedAt             = seedDate.AddHours(2),
-            UpdatedAt             = seedDate.AddHours(2)
-        };
-        var wf3 = new AgentWorkflow
-        {
-            Objective             = "Routine intake for patient with seasonal allergies",
-            Status                = WorkflowStatus.Running,
-            RequiresHumanApproval = false,
-            CreatedAt             = seedDate.AddHours(4),
-            UpdatedAt             = seedDate.AddHours(4)
-        };
-        var wf4 = new AgentWorkflow
-        {
-            Objective             = "Dermatology slot booking – completed successfully",
-            Status                = WorkflowStatus.Completed,
-            RequiresHumanApproval = false,
-            CreatedAt             = seedDate.AddDays(-1),
-            UpdatedAt             = seedDate.AddDays(-1).AddHours(1)
-        };
-
-        context.AgentWorkflows.AddRange(wf1, wf2, wf3, wf4);
-        await context.SaveChangesAsync();
-
-        // ── Realistic AuditLogs ──────────────────────────────────────────────
-        context.AuditLogs.AddRange(
-            // Workflow 1: Emergency chest pain – IntakeAgent parses symptoms
-            new AuditLog { WorkflowId = wf1.Id, AgentName = "IntakeAgent",   ToolCalled = "ParseSymptoms",          ToolOutput = "{\"symptoms\":[\"chest pain\",\"shortness of breath\",\"left arm numbness\"],\"severity\":\"high\",\"duration\":\"2 hours\"}",          CreatedAt = seedDate.AddMinutes(1), UpdatedAt = seedDate.AddMinutes(1) },
-            new AuditLog { WorkflowId = wf1.Id, AgentName = "TriageAgent",   ToolCalled = "AssignUrgency",          ToolOutput = "{\"urgencyLevel\":\"Emergency\",\"urgencyScore\":95,\"recommendedSpecialty\":\"Cardiology\",\"reasoning\":\"Chest pain with radiating arm numbness indicates possible MI\"}",   CreatedAt = seedDate.AddMinutes(2), UpdatedAt = seedDate.AddMinutes(2) },
-            new AuditLog { WorkflowId = wf1.Id, AgentName = "SafetyAuditor", ToolCalled = "SafetyAuditor_PauseAction", ToolOutput = "{\"action\":\"SafetyAuditor_PauseAction\",\"workflowId\":0,\"reason\":\"Emergency-level urgency detected – mandatory human review required\",\"violation\":\"UrgencyLevel=Emergency triggers mandatory pause policy\"}", CreatedAt = seedDate.AddMinutes(3), UpdatedAt = seedDate.AddMinutes(3) },
-
-            // Workflow 2: Schedule Agent + specialty mismatch
-            new AuditLog { WorkflowId = wf2.Id, AgentName = "ScheduleAgent", ToolCalled = "FindAvailableSlot",      ToolOutput = "{\"doctorId\":3,\"doctorName\":\"Dr. Perera\",\"specialty\":\"Cardiology\",\"proposedSlot\":\"2026-09-10T09:00:00Z\",\"roomId\":2}",                                                         CreatedAt = seedDate.AddHours(2).AddMinutes(1), UpdatedAt = seedDate.AddHours(2).AddMinutes(1) },
-            new AuditLog { WorkflowId = wf2.Id, AgentName = "SafetyAuditor", ToolCalled = "SafetyAuditor_PauseAction", ToolOutput = "{\"action\":\"SafetyAuditor_PauseAction\",\"workflowId\":0,\"reason\":\"Doctor specialty mismatch\",\"violation\":\"VerifySpecialtyMatch failed for DoctorId=3\"}",                CreatedAt = seedDate.AddHours(2).AddMinutes(2), UpdatedAt = seedDate.AddHours(2).AddMinutes(2) },
-
-            // Workflow 4: Completed dermatology – full clean trace
-            new AuditLog { WorkflowId = wf4.Id, AgentName = "IntakeAgent",   ToolCalled = "ParseSymptoms",          ToolOutput = "{\"symptoms\":[\"skin rash\",\"itching\"],\"severity\":\"low\",\"duration\":\"5 days\"}",                                                                                               CreatedAt = seedDate.AddDays(-1).AddMinutes(1), UpdatedAt = seedDate.AddDays(-1).AddMinutes(1) },
-            new AuditLog { WorkflowId = wf4.Id, AgentName = "TriageAgent",   ToolCalled = "AssignUrgency",          ToolOutput = "{\"urgencyLevel\":\"Low\",\"urgencyScore\":15,\"recommendedSpecialty\":\"Dermatology\",\"reasoning\":\"Non-emergency skin condition\"}",                                                 CreatedAt = seedDate.AddDays(-1).AddMinutes(2), UpdatedAt = seedDate.AddDays(-1).AddMinutes(2) },
-            new AuditLog { WorkflowId = wf4.Id, AgentName = "ScheduleAgent", ToolCalled = "ConfirmBooking",         ToolOutput = "{\"appointmentId\":1,\"doctorId\":5,\"slot\":\"2026-09-02T14:00:00Z\",\"status\":\"Confirmed\"}",                                                                                       CreatedAt = seedDate.AddDays(-1).AddMinutes(3), UpdatedAt = seedDate.AddDays(-1).AddMinutes(3) }
-        );
-
-        // ── Historical Admin Approval ────────────────────────────────────────
-        var admin = context.Users.FirstOrDefault(u => u.Role == UserRole.Admin);
-        if (admin != null)
-        {
-            context.AdminApprovals.Add(new AdminApproval
-            {
-                WorkflowId  = wf4.Id,
-                AdminUserId = admin.Id,
-                Decision    = ApprovalDecision.Approved,
-                CreatedAt   = seedDate.AddDays(-1).AddMinutes(5),
-                UpdatedAt   = seedDate.AddDays(-1).AddMinutes(5)
-            });
-        }
-
-        await context.SaveChangesAsync();
     }
 }

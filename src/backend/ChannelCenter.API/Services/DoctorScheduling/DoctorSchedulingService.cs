@@ -250,12 +250,15 @@ public class DoctorSchedulingService : IDoctorSchedulingService
     public async Task<DoctorScheduleDto> CreateScheduleAsync(CreateDoctorScheduleDto dto)
     {
         // 1. Verify if Doctor is on Approved leave during requested schedule time
+        var scheduleStart = dto.StartTime.Date;
+        var scheduleEnd = dto.EndTime.Date;
+
         var isOnLeave = await _context.DoctorLeaves
             .AsNoTracking()
             .AnyAsync(l => l.DoctorId == dto.DoctorId 
                         && l.Status == LeaveStatus.Approved 
-                        && l.StartDate <= dto.EndTime 
-                        && l.EndDate >= dto.StartTime);
+                        && l.StartDate.Date <= scheduleEnd 
+                        && l.EndDate.Date >= scheduleStart);
 
         if (isOnLeave)
         {
