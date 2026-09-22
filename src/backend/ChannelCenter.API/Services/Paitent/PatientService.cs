@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
-using ChannelCenter.API.DTOs.Common;
+using ChannelCenter.API.DTOs.Admin;
+//using ChannelCenter.API.DTOs.Common;
 using ChannelCenter.API.DTOs.Patient;
 using ChannelCenter.API.Models;
 

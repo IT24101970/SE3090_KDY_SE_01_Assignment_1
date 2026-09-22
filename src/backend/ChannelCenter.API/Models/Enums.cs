@@ -39,7 +39,8 @@ public enum AppointmentStatus
 {
     Pending,
     Confirmed,
-    Cancelled
+    Cancelled,
+    Completed
 }
 
 // 3. Medical Triage & Specialist Matching
