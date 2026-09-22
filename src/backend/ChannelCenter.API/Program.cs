@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.Services.Admin;
+using ChannelCenter.API.Services.Triage;//
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,7 +60,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title       = "ChannelCenter API",
         Version     = "v1",
-        Description = "AI-Integrated Hospital Channeling System – Component 4: Admin Oversight & AI Safety"
+        Description = "AI-Integrated Hospital Channeling System – Backend API"
     });
 
     // Add Bearer token support button in Swagger UI
@@ -88,6 +89,9 @@ builder.Services.AddSwaggerGen(options =>
 // ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+// ── Medical Triage & Specialist Matching Service Layer (Component 3) ─────────
+builder.Services.AddScoped<ITriageService, TriageService>();
 
 // ── Admin Service Layer (Component 4) ─────────────────────────────────────────
 builder.Services.AddScoped<IAgentWorkflowService, AgentWorkflowService>();
