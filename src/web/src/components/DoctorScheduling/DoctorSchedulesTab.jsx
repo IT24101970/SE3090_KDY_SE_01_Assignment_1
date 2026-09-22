@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 const API_BASE = 'http://localhost:5066/api/doctor-scheduling';
-const LOCAL_STORAGE_KEY = 'ds_custom_schedules_v1';
 
 export default function DoctorSchedulesTab() {
   const [schedules, setSchedules] = useState([]);
@@ -52,61 +51,15 @@ export default function DoctorSchedulesTab() {
         setLeaves(await resLeaves.json());
       }
     } catch (err) {
-      console.warn('API Offline or starting up. Using cached demonstration data.', err);
-      setDoctors([
-        { id: 1, doctorName: 'Dr. Sarah Jenkins', specialtyName: 'Cardiology' },
-        { id: 2, doctorName: 'Dr. Michael Chen', specialtyName: 'Neurology' }
-      ]);
-      setRooms([
-        { id: 1, roomName: 'Room 101', floor: '1st Floor', isActive: true },
-        { id: 2, roomName: 'Room 202', floor: '2nd Floor', isActive: true },
-        { id: 4, roomName: 'Room 408', floor: '4th Floor', isActive: false }
-      ]);
-      setLeaves([
-        {
-          id: 1,
-          doctorId: 2,
-          doctorName: 'Dr. Michael Chen',
-          startDate: '2026-10-15',
-          endDate: '2026-10-16',
-          status: 1 // Approved
-        }
-      ]);
-      apiSchedules = [
-        {
-          id: 101,
-          doctorId: 1,
-          doctorName: 'Dr. Sarah Jenkins',
-          specialtyName: 'Cardiology',
-          roomName: 'Room 101',
-          floor: '1st Floor',
-          startTime: new Date().toISOString(),
-          endTime: new Date(Date.now() + 3600000 * 3).toISOString(),
-          maxPatients: 15
-        }
-      ];
+      setAlert({ type: 'error', text: `Unable to load scheduling data: ${err.message}` });
     } finally {
-      const storedCustom = localStorage.getItem(LOCAL_STORAGE_KEY);
-      let localCustom = [];
-      if (storedCustom) {
-        try {
-          localCustom = JSON.parse(storedCustom);
-        } catch {
-          localCustom = [];
-        }
-      }
-
-      const combinedMap = new Map();
-      apiSchedules.forEach((s) => combinedMap.set(s.id, s));
-      localCustom.forEach((s) => combinedMap.set(s.id, s));
-
-      setSchedules(Array.from(combinedMap.values()));
+      setSchedules(apiSchedules);
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    Promise.resolve().then(fetchData);
   }, []);
 
   const handleCreate = async (e) => {
@@ -187,28 +140,8 @@ export default function DoctorSchedulesTab() {
       
       const updatedSchedules = [...schedules, result];
       setSchedules(updatedSchedules);
-      saveLocalCustomSchedules(result);
     } catch (err) {
-      const doc = doctors.find((d) => d.id === selectedDocId);
-
-      const newSchedule = {
-        id: Date.now(),
-        doctorId: selectedDocId,
-        doctorName: doc?.doctorName || 'Dr. Specialist',
-        specialtyName: doc?.specialtyName || 'General',
-        roomId: selectedRoomId,
-        roomName: selectedRoom?.roomName || 'Room 101',
-        floor: selectedRoom?.floor || '1st Floor',
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-        maxPatients: formData.maxPatients
-      };
-
-      const updatedSchedules = [...schedules, newSchedule];
-      setSchedules(updatedSchedules);
-      saveLocalCustomSchedules(newSchedule);
-
-      setAlert({ type: 'success', text: '✨ Schedule session created and added to session roster!' });
+      setAlert({ type: 'error', text: `Unable to save schedule: ${err.message}` });
     }
   };
 
@@ -218,34 +151,14 @@ export default function DoctorSchedulesTab() {
         method: 'DELETE'
       });
     } catch (e) {
-      console.warn('Backend DELETE error or fallback mode:', e);
+      setAlert({ type: 'error', text: `Unable to delete schedule: ${e.message}` });
+      return;
     }
 
     const filtered = schedules.filter((s) => s.id !== id);
     setSchedules(filtered);
 
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) {
-        const list = JSON.parse(stored).filter((s) => s.id !== id);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
-      }
-    } catch (e) {
-      console.error('Failed to update localStorage after delete', e);
-    }
-
     setAlert({ type: 'success', text: '🗑️ Active Channel Session removed successfully!' });
-  };
-
-  const saveLocalCustomSchedules = (newItem) => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      let list = stored ? JSON.parse(stored) : [];
-      list.push(newItem);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
-    } catch (e) {
-      console.error('Failed to save to localStorage', e);
-    }
   };
 
   return (

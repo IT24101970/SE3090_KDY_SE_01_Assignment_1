@@ -100,17 +100,15 @@ builder.Services.AddScoped<IAdminOverrideService, AdminOverrideService>();
 builder.Services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
-<<<<<<< HEAD
+
 // ── Student 2: Doctor Scheduling & Consultation Management Service ─────────────
 builder.Services.AddScoped<IDoctorSchedulingService, DoctorSchedulingService>();
 
 // ── Build App ─────────────────────────────────────────────────────────────────
-=======
 // ── Build App ─────────────────────────────────────────────────────────────────
 // Student 2: Register Doctor Scheduling & Consultation Management Service
 builder.Services.AddScoped<IDoctorSchedulingService, DoctorSchedulingService>();
 
->>>>>>> 9784608447c03f8a9451b426527b61c6f485263f
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
