@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
+using ChannelCenter.API.Services.DoctorScheduling;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,9 @@ builder.Services.AddSwaggerGen();
 // Register the DbContext to use PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+// Student 2: Register Doctor Scheduling & Consultation Management Service
+builder.Services.AddScoped<IDoctorSchedulingService, DoctorSchedulingService>();
 
 var app = builder.Build();
 
