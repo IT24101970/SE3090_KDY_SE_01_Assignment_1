@@ -11,6 +11,7 @@ using ChannelCenter.API.Services.IntakeAgent;
 using ChannelCenter.API.Services.Patient;
 using ChannelCenter.API.Services.SafetyAuditor;
 using ChannelCenter.API.Services.Triage;
+using ChannelCenter.API.Services.DoctorScheduling;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -103,6 +104,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 // ── Medical Triage & Specialist Matching Service Layer (Component 3) ─────────
 builder.Services.AddScoped<ITriageService, TriageService>();
+
+// ── Student 2: Doctor Scheduling & Consultation Management Service ─────────────
+builder.Services.AddScoped<IDoctorSchedulingService, DoctorSchedulingService>();
 
 // ── Admin Service Layer (Component 4) ─────────────────────────────────────────
 builder.Services.AddScoped<IAgentWorkflowService, AgentWorkflowService>();
