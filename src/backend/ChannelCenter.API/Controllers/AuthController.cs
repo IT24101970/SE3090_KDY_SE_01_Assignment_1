@@ -27,12 +27,6 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
-    // Convenience constructor for tests
-    public AuthController(IConfiguration config, ApplicationDbContext dbContext)
-        : this(config, dbContext, new AuthService(dbContext, config))
-    {
-    }
-
     // POST: api/auth/register
     // Patient onboarding and account registration
     [HttpPost("register")]
