@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.DTOs.SafetyAuditor;
@@ -18,6 +19,7 @@ public class AgentWorkflowsController : ControllerBase
     private readonly IAgentWorkflowService _workflowService;
     private readonly ISafetyAuditorService? _safetyAuditorService;
     
+    [ActivatorUtilitiesConstructor]
     public AgentWorkflowsController(
         IAgentWorkflowService workflowService,
         ISafetyAuditorService? safetyAuditorService = null)

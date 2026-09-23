@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Services.Admin;
@@ -13,6 +14,7 @@ public class AuditLogController : ControllerBase
 {
     private readonly IAuditLogService _auditLogService;
 
+    [ActivatorUtilitiesConstructor]
     public AuditLogController(IAuditLogService auditLogService)
     {
         _auditLogService = auditLogService;

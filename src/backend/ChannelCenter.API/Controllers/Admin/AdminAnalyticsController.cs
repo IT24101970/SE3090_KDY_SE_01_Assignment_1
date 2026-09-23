@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.Services.Admin;
 
@@ -12,6 +13,7 @@ public class AdminAnalyticsController : ControllerBase
 {
     private readonly IAdminAnalyticsService _analyticsService;
 
+    [ActivatorUtilitiesConstructor]
     public AdminAnalyticsController(IAdminAnalyticsService analyticsService)
     {
         _analyticsService = analyticsService;

@@ -52,9 +52,14 @@ public class TriageService : ITriageService
 
     public async Task<TriageAssessmentDto> ProcessTriageAsync(ProcessTriageDto dto)
     {
-        // 1. Calculate urgency based on symptom severity ratings
+        // 1. Calculate urgency score & red flag detection
         int maxSeverity = dto.SymptomList.Any() ? dto.SymptomList.Max(s => s.SeverityRating ?? 1) : 1;
-        int calculatedScore = maxSeverity * 10;
+        string combinedSymptoms = ((dto.RawSymptoms ?? "") + " " + string.Join(" ", dto.SymptomList.Select(s => s.SymptomKeyword))).ToLowerInvariant();
+
+        bool hasEmergencyRedFlag = combinedSymptoms.Contains("chest pain") || combinedSymptoms.Contains("shortness of breath") || 
+                                   combinedSymptoms.Contains("stroke") || combinedSymptoms.Contains("unconscious") || combinedSymptoms.Contains("severe bleeding");
+
+        int calculatedScore = hasEmergencyRedFlag ? Math.Max(92, maxSeverity * 10) : maxSeverity * 10;
 
         UrgencyLevel level = calculatedScore switch
         {
@@ -64,26 +69,40 @@ public class TriageService : ITriageService
             _ => UrgencyLevel.Low
         };
 
-        // 2. Specialty Matching Logic (Default to General Medicine if none matched)
-        var defaultSpecialty = await _context.Specialties.FirstOrDefaultAsync() 
-            ?? new Specialty { Name = "General Medicine", Description = "General health care" };
-
-        if (defaultSpecialty.Id == 0)
+        // 2. Specialty Matching (direct string recommended specialty)
+        string matchedSpecialty = "General Medicine";
+        if (combinedSymptoms.Contains("chest pain") || combinedSymptoms.Contains("heart") || combinedSymptoms.Contains("palpitation") || combinedSymptoms.Contains("cardiac"))
         {
-            _context.Specialties.Add(defaultSpecialty);
-            await _context.SaveChangesAsync();
+            matchedSpecialty = "Cardiology";
+        }
+        else if (combinedSymptoms.Contains("rash") || combinedSymptoms.Contains("skin") || combinedSymptoms.Contains("itch") || combinedSymptoms.Contains("acne") || combinedSymptoms.Contains("lesion"))
+        {
+            matchedSpecialty = "Dermatology";
+        }
+        else if (combinedSymptoms.Contains("headache") || combinedSymptoms.Contains("numbness") || combinedSymptoms.Contains("dizziness") || combinedSymptoms.Contains("seizure") || combinedSymptoms.Contains("stroke") || combinedSymptoms.Contains("migraine"))
+        {
+            matchedSpecialty = "Neurology";
+        }
+        else if (combinedSymptoms.Contains("joint") || combinedSymptoms.Contains("knee") || combinedSymptoms.Contains("bone") || combinedSymptoms.Contains("fracture") || combinedSymptoms.Contains("back pain") || combinedSymptoms.Contains("sprain"))
+        {
+            matchedSpecialty = "Orthopedics";
+        }
+        else if (combinedSymptoms.Contains("stomach") || combinedSymptoms.Contains("nausea") || combinedSymptoms.Contains("vomiting") || combinedSymptoms.Contains("acid") || combinedSymptoms.Contains("reflux") || combinedSymptoms.Contains("diarrhea"))
+        {
+            matchedSpecialty = "Gastroenterology";
         }
 
-        // 3. Create Assessment Record
+        string reasoningTrace = $"[Symptom Triage Agent] Parsed {dto.SymptomList.Count} symptom entries for raw symptoms: '{dto.RawSymptoms}'. Highest severity score: {maxSeverity}/10. Emergency red flags: {(hasEmergencyRedFlag ? "Detected" : "None")}. Matched specialty: {matchedSpecialty}. Assessed urgency level: {level} (Score: {calculatedScore}/100).";
+
+        // 3. Create TriageAssessment Record with AppointmentId
         var assessment = new TriageAssessment
         {
-            PatientId = dto.PatientId,
-            QuestionnaireId = dto.QuestionnaireId,
+            AppointmentId = dto.AppointmentId,
             RawSymptoms = dto.RawSymptoms,
             UrgencyScore = calculatedScore,
             UrgencyLevel = level,
-            ReasoningTrace = $"Evaluated {dto.SymptomList.Count} symptoms. Highest severity rating: {maxSeverity}/10. Recommended urgency classification: {level}.",
-            RecommendedSpecialtyId = defaultSpecialty.Id,
+            ReasoningTrace = reasoningTrace,
+            RecommendedSpecialty = matchedSpecialty,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -106,11 +125,11 @@ public class TriageService : ITriageService
         }
         await _context.SaveChangesAsync();
 
-        // 5. Automatically Generate Referral
+        // 5. Automatically Generate Referral with direct string TargetSpecialty
         var referral = new Referral
         {
             TriageId = assessment.Id,
-            TargetSpecialtyId = defaultSpecialty.Id,
+            TargetSpecialty = matchedSpecialty,
             Status = ReferralStatus.Generated,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -121,18 +140,12 @@ public class TriageService : ITriageService
         return new TriageAssessmentDto
         {
             Id = assessment.Id,
-            PatientId = assessment.PatientId,
-            QuestionnaireId = assessment.QuestionnaireId,
+            AppointmentId = assessment.AppointmentId,
             RawSymptoms = assessment.RawSymptoms,
             UrgencyScore = assessment.UrgencyScore,
             UrgencyLevel = assessment.UrgencyLevel,
             ReasoningTrace = assessment.ReasoningTrace,
-            RecommendedSpecialty = new SpecialtyDto
-            {
-                Id = defaultSpecialty.Id,
-                Name = defaultSpecialty.Name,
-                Description = defaultSpecialty.Description
-            },
+            RecommendedSpecialty = assessment.RecommendedSpecialty,
             SymptomLogs = dto.SymptomList,
             CreatedAt = assessment.CreatedAt
         };
@@ -140,10 +153,7 @@ public class TriageService : ITriageService
 
     public async Task<TriageAssessmentDto?> GetTriageAssessmentByIdAsync(int id)
     {
-        var a = await _context.TriageAssessments
-            .Include(t => t.RecommendedSpecialty)
-            .FirstOrDefaultAsync(t => t.Id == id);
-
+        var a = await _context.TriageAssessments.FirstOrDefaultAsync(t => t.Id == id);
         if (a == null) return null;
 
         var symptomLogs = await _context.SymptomLogs
@@ -158,28 +168,21 @@ public class TriageService : ITriageService
         return new TriageAssessmentDto
         {
             Id = a.Id,
-            PatientId = a.PatientId,
-            QuestionnaireId = a.QuestionnaireId,
+            AppointmentId = a.AppointmentId,
             RawSymptoms = a.RawSymptoms,
             UrgencyScore = a.UrgencyScore,
             UrgencyLevel = a.UrgencyLevel,
             ReasoningTrace = a.ReasoningTrace,
-            RecommendedSpecialty = a.RecommendedSpecialty == null ? null : new SpecialtyDto
-            {
-                Id = a.RecommendedSpecialty.Id,
-                Name = a.RecommendedSpecialty.Name,
-                Description = a.RecommendedSpecialty.Description
-            },
+            RecommendedSpecialty = a.RecommendedSpecialty,
             SymptomLogs = symptomLogs,
             CreatedAt = a.CreatedAt
         };
     }
 
-    public async Task<IEnumerable<TriageAssessmentDto>> GetPatientTriageHistoryAsync(int patientId)
+    public async Task<IEnumerable<TriageAssessmentDto>> GetTriageHistoryByAppointmentAsync(int appointmentId)
     {
         var assessments = await _context.TriageAssessments
-            .Include(t => t.RecommendedSpecialty)
-            .Where(t => t.PatientId == patientId)
+            .Where(t => t.AppointmentId == appointmentId)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
@@ -198,18 +201,12 @@ public class TriageService : ITriageService
             result.Add(new TriageAssessmentDto
             {
                 Id = a.Id,
-                PatientId = a.PatientId,
-                QuestionnaireId = a.QuestionnaireId,
+                AppointmentId = a.AppointmentId,
                 RawSymptoms = a.RawSymptoms,
                 UrgencyScore = a.UrgencyScore,
                 UrgencyLevel = a.UrgencyLevel,
                 ReasoningTrace = a.ReasoningTrace,
-                RecommendedSpecialty = a.RecommendedSpecialty == null ? null : new SpecialtyDto
-                {
-                    Id = a.RecommendedSpecialty.Id,
-                    Name = a.RecommendedSpecialty.Name,
-                    Description = a.RecommendedSpecialty.Description
-                },
+                RecommendedSpecialty = a.RecommendedSpecialty,
                 SymptomLogs = symptomLogs,
                 CreatedAt = a.CreatedAt
             });
@@ -223,7 +220,7 @@ public class TriageService : ITriageService
         var referral = new Referral
         {
             TriageId = dto.TriageId,
-            TargetSpecialtyId = dto.TargetSpecialtyId,
+            TargetSpecialty = dto.TargetSpecialty,
             Status = ReferralStatus.Generated,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -232,29 +229,19 @@ public class TriageService : ITriageService
         _context.Referrals.Add(referral);
         await _context.SaveChangesAsync();
 
-        var specialty = await _context.Specialties.FindAsync(dto.TargetSpecialtyId);
-
         return new ReferralDto
         {
             Id = referral.Id,
             TriageId = referral.TriageId,
+            TargetSpecialty = referral.TargetSpecialty,
             Status = referral.Status,
-            CreatedAt = referral.CreatedAt,
-            TargetSpecialty = specialty == null ? null : new SpecialtyDto
-            {
-                Id = specialty.Id,
-                Name = specialty.Name,
-                Description = specialty.Description
-            }
+            CreatedAt = referral.CreatedAt
         };
     }
 
     public async Task<ReferralDto?> UpdateReferralStatusAsync(int referralId, UpdateReferralStatusDto dto)
     {
-        var referral = await _context.Referrals
-            .Include(r => r.TargetSpecialty)
-            .FirstOrDefaultAsync(r => r.Id == referralId);
-
+        var referral = await _context.Referrals.FirstOrDefaultAsync(r => r.Id == referralId);
         if (referral == null) return null;
 
         referral.Status = dto.Status;
@@ -265,46 +252,38 @@ public class TriageService : ITriageService
         {
             Id = referral.Id,
             TriageId = referral.TriageId,
+            TargetSpecialty = referral.TargetSpecialty,
             Status = referral.Status,
-            CreatedAt = referral.CreatedAt,
-            TargetSpecialty = referral.TargetSpecialty == null ? null : new SpecialtyDto
-            {
-                Id = referral.TargetSpecialty.Id,
-                Name = referral.TargetSpecialty.Name,
-                Description = referral.TargetSpecialty.Description
-            }
+            CreatedAt = referral.CreatedAt
         };
     }
 
     public async Task<IEnumerable<ReferralDto>> GetAllReferralsAsync()
     {
         return await _context.Referrals
-            .Include(r => r.TargetSpecialty)
             .Select(r => new ReferralDto
             {
                 Id = r.Id,
                 TriageId = r.TriageId,
+                TargetSpecialty = r.TargetSpecialty,
                 Status = r.Status,
-                CreatedAt = r.CreatedAt,
-                TargetSpecialty = r.TargetSpecialty == null ? null : new SpecialtyDto
-                {
-                    Id = r.TargetSpecialty.Id,
-                    Name = r.TargetSpecialty.Name,
-                    Description = r.TargetSpecialty.Description
-                }
+                CreatedAt = r.CreatedAt
             })
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<SpecialtyDto>> GetSpecialtiesAsync()
+    public Task<IEnumerable<string>> GetSpecialtiesAsync()
     {
-        return await _context.Specialties
-            .Select(s => new SpecialtyDto
-            {
-                Id = s.Id,
-                Name = s.Name,
-                Description = s.Description
-            })
-            .ToListAsync();
+        var specialties = new List<string>
+        {
+            "Cardiology",
+            "Dermatology",
+            "Neurology",
+            "Orthopedics",
+            "Gastroenterology",
+            "General Medicine"
+        };
+
+        return Task.FromResult<IEnumerable<string>>(specialties);
     }
 }

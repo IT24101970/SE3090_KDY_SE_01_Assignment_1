@@ -62,12 +62,12 @@ public class TriageController : ControllerBase
     }
 
     /// <summary>
-    /// Gets full triage assessment history for a specific patient.
+    /// Gets triage assessment history for a specific appointment ID.
     /// </summary>
-    [HttpGet("patient/{patientId:int}/history")]
-    public async Task<ActionResult<IEnumerable<TriageAssessmentDto>>> GetPatientTriageHistory(int patientId)
+    [HttpGet("appointment/{appointmentId:int}/history")]
+    public async Task<ActionResult<IEnumerable<TriageAssessmentDto>>> GetTriageHistoryByAppointment(int appointmentId)
     {
-        var history = await _triageService.GetPatientTriageHistoryAsync(patientId);
+        var history = await _triageService.GetTriageHistoryByAppointmentAsync(appointmentId);
         return Ok(history);
     }
 
@@ -77,7 +77,7 @@ public class TriageController : ControllerBase
     /// Lists all available medical specialties for assignment and referral.
     /// </summary>
     [HttpGet("specialties")]
-    public async Task<ActionResult<IEnumerable<SpecialtyDto>>> GetSpecialties()
+    public async Task<ActionResult<IEnumerable<string>>> GetSpecialties()
     {
         var specialties = await _triageService.GetSpecialtiesAsync();
         return Ok(specialties);

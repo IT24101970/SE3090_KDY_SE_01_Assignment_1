@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Services.Admin;
@@ -14,6 +15,7 @@ public class AdminOverrideController : ControllerBase
 {
     private readonly IAdminOverrideService _overrideService;
 
+    [ActivatorUtilitiesConstructor]
     public AdminOverrideController(IAdminOverrideService overrideService)
     {
         _overrideService = overrideService;

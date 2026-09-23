@@ -25,11 +25,11 @@ public class AdminAnalyticsControllerTests
 
         context.TriageAssessments.Add(new TriageAssessment
         {
-            PatientId              = 1,
-            RawSymptoms            = "chest pain",
-            UrgencyScore           = 95,
-            UrgencyLevel           = UrgencyLevel.Emergency,
-            RecommendedSpecialtyId = 1
+            AppointmentId        = 1,
+            RawSymptoms          = "chest pain",
+            UrgencyScore         = 95,
+            UrgencyLevel         = UrgencyLevel.Emergency,
+            RecommendedSpecialty = "Cardiology"
         });
 
         await context.SaveChangesAsync();
@@ -103,10 +103,10 @@ public class AdminAnalyticsControllerTests
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
 
         context.TriageAssessments.AddRange(
-            new TriageAssessment { PatientId = 1, RawSymptoms = "s1", UrgencyScore = 90, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialtyId = 1 },
-            new TriageAssessment { PatientId = 2, RawSymptoms = "s2", UrgencyScore = 90, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialtyId = 1 },
-            new TriageAssessment { PatientId = 3, RawSymptoms = "s3", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Low,       RecommendedSpecialtyId = 1 },
-            new TriageAssessment { PatientId = 4, RawSymptoms = "s4", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Low,       RecommendedSpecialtyId = 1 }
+            new TriageAssessment { AppointmentId = 1, RawSymptoms = "s1", UrgencyScore = 90, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialty = "Cardiology" },
+            new TriageAssessment { AppointmentId = 2, RawSymptoms = "s2", UrgencyScore = 90, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialty = "Cardiology" },
+            new TriageAssessment { AppointmentId = 3, RawSymptoms = "s3", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Low,       RecommendedSpecialty = "General Medicine" },
+            new TriageAssessment { AppointmentId = 4, RawSymptoms = "s4", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Low,       RecommendedSpecialty = "General Medicine" }
         );
         await context.SaveChangesAsync();
 
