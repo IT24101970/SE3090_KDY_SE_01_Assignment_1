@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
+using ChannelCenter.API.DTOs.SafetyAuditor;
 using ChannelCenter.API.Models;
 using ChannelCenter.API.Services.Admin;
+using ChannelCenter.API.Services.SafetyAuditor;
 
 namespace ChannelCenter.API.Controllers.Admin;
 
@@ -14,17 +16,15 @@ namespace ChannelCenter.API.Controllers.Admin;
 public class AgentWorkflowsController : ControllerBase
 {
     private readonly IAgentWorkflowService _workflowService;
+    private readonly ISafetyAuditorService? _safetyAuditorService;
     
-    public AgentWorkflowsController(IAgentWorkflowService workflowService)
+    public AgentWorkflowsController(
+        IAgentWorkflowService workflowService,
+        ISafetyAuditorService? safetyAuditorService = null)
     {
         _workflowService = workflowService;
+        _safetyAuditorService = safetyAuditorService;
     }
-
-    // Convenience constructor for tests utilizing in-memory DbContext directly
-    // public AgentWorkflowsController(ApplicationDbContext context)
-    //     : this(new AgentWorkflowService(context))
-    // {
-    // }
 
     // GET: api/admin/workflows (optionally filter by ?status=PausedForApproval)
     [HttpGet]
@@ -89,6 +89,29 @@ public class AgentWorkflowsController : ControllerBase
             message = "Workflow successfully paused for human review.", 
             workflowId = id 
         });
+    }
+
+    // POST: api/admin/workflows/{id}/safety-audit
+    [HttpPost("{id}/safety-audit")]
+    public async Task<IActionResult> StartSafetyAudit(
+        int id,
+        [FromBody] SafetyAuditStartRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        if (_safetyAuditorService == null)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+
+        var response = await _safetyAuditorService.StartAsync(id, request, cancellationToken);
+        return response.Status == WorkflowStatus.SafeFailed
+            ? StatusCode(StatusCodes.Status502BadGateway, response)
+            : Ok(response);
     }
     
     // POST: api/admin/workflows/{id}/approve

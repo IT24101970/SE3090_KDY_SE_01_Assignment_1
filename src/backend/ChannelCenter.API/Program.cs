@@ -9,6 +9,7 @@ using ChannelCenter.API.Services.Appointment;
 using ChannelCenter.API.Services.Auth;
 using ChannelCenter.API.Services.IntakeAgent;
 using ChannelCenter.API.Services.Patient;
+using ChannelCenter.API.Services.SafetyAuditor;
 using ChannelCenter.API.Services.Triage;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -108,6 +109,22 @@ builder.Services.AddScoped<IAgentWorkflowService, AgentWorkflowService>();
 builder.Services.AddScoped<IAdminOverrideService, AdminOverrideService>();
 builder.Services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+
+// Internal Safety Auditor calls use a separate shared secret, never a browser JWT.
+builder.Services.Configure<SafetyAuditorOptions>(
+    builder.Configuration.GetSection(SafetyAuditorOptions.SectionName));
+builder.Services.AddHttpClient<ISafetyAuditorService, SafetyAuditorService>((serviceProvider, client) =>
+{
+    var options = serviceProvider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<SafetyAuditorOptions>>()
+        .Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 60));
+    if (!string.IsNullOrWhiteSpace(options.InternalServiceKey))
+    {
+        client.DefaultRequestHeaders.Add("X-Internal-Service-Key", options.InternalServiceKey);
+    }
+});
 
 // ── Build App ─────────────────────────────────────────────────────────────────
 var app = builder.Build();

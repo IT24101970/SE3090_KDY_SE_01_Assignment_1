@@ -32,6 +32,16 @@ public class AgentWorkflowService : IAgentWorkflowService
                 Objective = w.Objective,
                 Status = w.Status,
                 RequiresHumanApproval = w.RequiresHumanApproval,
+                CorrelationId = w.CorrelationId,
+                ContractVersion = w.ContractVersion,
+                RiskLevel = w.RiskLevel,
+                PlanSummary = w.PlanSummary,
+                ValidationSummary = w.ValidationSummary,
+                FinalOutcome = w.FinalOutcome,
+                ErrorCode = w.ErrorCode,
+                ErrorMessage = w.ErrorMessage,
+                CompletedAt = w.CompletedAt,
+                SafeFailedAt = w.SafeFailedAt,
                 CreatedAt = w.CreatedAt
             })
             .ToListAsync();
@@ -55,6 +65,16 @@ public class AgentWorkflowService : IAgentWorkflowService
             Objective = workflow.Objective,
             Status = workflow.Status,
             RequiresHumanApproval = workflow.RequiresHumanApproval,
+            CorrelationId = workflow.CorrelationId,
+            ContractVersion = workflow.ContractVersion,
+            RiskLevel = workflow.RiskLevel,
+            PlanSummary = workflow.PlanSummary,
+            ValidationSummary = workflow.ValidationSummary,
+            FinalOutcome = workflow.FinalOutcome,
+            ErrorCode = workflow.ErrorCode,
+            ErrorMessage = workflow.ErrorMessage,
+            CompletedAt = workflow.CompletedAt,
+            SafeFailedAt = workflow.SafeFailedAt,
             CreatedAt = workflow.CreatedAt,
             AuditLogs = workflow.AuditLogs
                 .OrderByDescending(a => a.CreatedAt)
@@ -64,6 +84,11 @@ public class AgentWorkflowService : IAgentWorkflowService
                     AgentName = a.AgentName,
                     ToolCalled = a.ToolCalled,
                     ToolOutput = a.ToolOutput,
+                    StepName = a.StepName,
+                    CorrelationId = a.CorrelationId,
+                    ContractVersion = a.ContractVersion,
+                    Outcome = a.Outcome,
+                    DurationMs = a.DurationMs,
                     CreatedAt = a.CreatedAt
                 }).ToList()
         };
@@ -76,6 +101,10 @@ public class AgentWorkflowService : IAgentWorkflowService
             Objective = request.Objective,
             Status = WorkflowStatus.Running,
             RequiresHumanApproval = request.RequiresHumanApproval,
+            CorrelationId = string.IsNullOrWhiteSpace(request.CorrelationId)
+                ? Guid.NewGuid().ToString("N")
+                : request.CorrelationId,
+            ContractVersion = request.ContractVersion,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -89,6 +118,8 @@ public class AgentWorkflowService : IAgentWorkflowService
             Objective = workflow.Objective,
             Status = workflow.Status,
             RequiresHumanApproval = workflow.RequiresHumanApproval,
+            CorrelationId = workflow.CorrelationId,
+            ContractVersion = workflow.ContractVersion,
             CreatedAt = workflow.CreatedAt
         };
     }
@@ -103,7 +134,7 @@ public class AgentWorkflowService : IAgentWorkflowService
             return (false, $"Workflow with ID {id} not found.", null);
         }
 
-        if (workflow.Status == WorkflowStatus.Completed || workflow.Status == WorkflowStatus.Terminated)
+        if (workflow.Status is WorkflowStatus.Completed or WorkflowStatus.Terminated or WorkflowStatus.SafeFailed)
         {
             return (false, $"Cannot make approval decisions on a workflow that is already {workflow.Status}.", null);
         }
@@ -156,14 +187,28 @@ public class AgentWorkflowService : IAgentWorkflowService
             return (false, $"Workflow with ID {id} not found.");
         }
 
-        if (workflow.Status == WorkflowStatus.Completed || workflow.Status == WorkflowStatus.Terminated)
+        if (workflow.Status is WorkflowStatus.Completed or WorkflowStatus.Terminated or WorkflowStatus.SafeFailed)
         {
             return (false, $"Cannot pause a workflow that is already {workflow.Status}.");
         }
 
         workflow.Status = WorkflowStatus.PausedForApproval;
         workflow.RequiresHumanApproval = true;
+        workflow.CorrelationId = request.CorrelationId ?? workflow.CorrelationId;
+        workflow.ContractVersion = request.ContractVersion;
+        workflow.RiskLevel = request.RiskLevel;
         workflow.UpdatedAt = DateTime.UtcNow;
+
+        var alreadyRecorded = request.CorrelationId != null &&
+            await _context.AuditLogs.AnyAsync(a =>
+                a.WorkflowId == workflow.Id &&
+                a.CorrelationId == request.CorrelationId &&
+                a.ToolCalled == "SafetyAuditor_PauseAction");
+
+        if (alreadyRecorded)
+        {
+            return (true, null);
+        }
 
         var auditLog = new AuditLog
         {
@@ -178,6 +223,10 @@ public class AgentWorkflowService : IAgentWorkflowService
                 violation = request.ValidationViolation,
                 timestamp = DateTime.UtcNow
             }),
+            CorrelationId = request.CorrelationId,
+            ContractVersion = request.ContractVersion,
+            StepName = "PauseOrComplete",
+            Outcome = "PausedForApproval",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };

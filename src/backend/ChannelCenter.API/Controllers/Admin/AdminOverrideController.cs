@@ -19,12 +19,6 @@ public class AdminOverrideController : ControllerBase
         _overrideService = overrideService;
     }
 
-    // Convenience constructor for tests utilizing in-memory DbContext directly
-    // public AdminOverrideController(ApplicationDbContext context)
-    //     : this(new AdminOverrideService(context))
-    // {
-    // }
-
     // POST: api/admin/overrides/workflows/{id}/cancel
     [HttpPost("workflows/{id}/cancel")]
     public async Task<IActionResult> CancelWorkflow(int id, [FromBody] OverrideCancelRequestDto request)
