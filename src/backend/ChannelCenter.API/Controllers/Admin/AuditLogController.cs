@@ -19,6 +19,12 @@ public class AuditLogController : ControllerBase
     {
         _auditLogService = auditLogService;
     }
+
+    // Convenience constructor for unit tests
+    public AuditLogController(ApplicationDbContext context)
+        : this(new AuditLogService(context))
+    {
+    }
     
     // GET: api/admin/audit-logs?workflowId=1&agentName=Triage&toolCalled=CheckSpecialty&page=1&pageSize=20
     [HttpGet]

@@ -19,6 +19,12 @@ public class AdminAnalyticsController : ControllerBase
         _analyticsService = analyticsService;
     }
 
+    // Convenience constructor for unit tests
+    public AdminAnalyticsController(ApplicationDbContext context)
+        : this(new AdminAnalyticsService(context))
+    {
+    }
+
     // GET: api/admin/analytics/overview
     [HttpGet("overview")]
     public async Task<IActionResult> GetOverview()

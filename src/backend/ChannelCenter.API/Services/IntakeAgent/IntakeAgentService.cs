@@ -1,9 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
-//using ChannelCenter.API.DTOs.Common;
 using ChannelCenter.API.DTOs.IntakeAgent;
 using ChannelCenter.API.Models;
 
@@ -35,106 +35,209 @@ public class IntakeAgentService : IIntakeAgentService
             return (false, "Raw text is required for intake processing.", null);
         }
 
+        // ΓöÇΓöÇ PROMPT-INJECTION DEFENCE ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        // rawText is treated as an UNTRUSTED DATA PAYLOAD only.
+        // This deterministic agent does NOT pass rawText to an LLM as instructions.
+        // All processing is rule-based keyword matching, so injection of text such as
+        // "Ignore previous instructions" has zero effect on agent behaviour.
+        // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+        var correlationId = Guid.NewGuid().ToString("N");
+        var sw = Stopwatch.StartNew();
+
+        // ΓöÇΓöÇ Register run in shared AgentWorkflow orchestration table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        var workflow = new AgentWorkflow
+        {
+            Objective = $"IntakeAgent: Process intake for PatientId={request.PatientId}",
+            Status = WorkflowStatus.Running,
+            RequiresHumanApproval = false,
+            CorrelationId = correlationId,
+            ContractVersion = "intake-agent.v1",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _context.AgentWorkflows.Add(workflow);
+        await _context.SaveChangesAsync();
+
         var logIds = new List<int>();
 
-        // Step 1: Tool Call - ValidatePatientEligibility(patientId)
-        var eligibilityResult = await ToolValidatePatientEligibilityAsync(request.PatientId);
-        if (!eligibilityResult.Success)
+        try
         {
-            return (false, eligibilityResult.ErrorMessage, null);
-        }
-        var log1 = await SaveAgentLogAsync(request.PatientId, "ValidatePatientEligibility",
-            JsonSerializer.Serialize(new { patientId = request.PatientId }),
-            eligibilityResult.ResultJson,
-            "Step 1: Patient eligibility validated");
-        logIds.Add(log1.Id);
+            // Step 1: Tool Call - ValidatePatientEligibility(patientId)
+            var t1 = Stopwatch.StartNew();
+            var eligibilityResult = await ToolValidatePatientEligibilityAsync(request.PatientId);
+            t1.Stop();
 
-        // Parse eligibility
-        var eligibilityDoc = JsonDocument.Parse(eligibilityResult.ResultJson);
-        var isEligible = eligibilityDoc.RootElement.GetProperty("isEligible").GetBoolean();
-        if (!isEligible)
-        {
-            var reason = eligibilityDoc.RootElement.GetProperty("reason").GetString() ?? "Patient is not currently eligible for booking.";
-            return (false, reason, null);
-        }
+            if (!eligibilityResult.Success)
+            {
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorMessage = eligibilityResult.ErrorMessage;
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return (false, eligibilityResult.ErrorMessage, null);
+            }
 
-        // Step 2: Tool Call - GetPatientHistory(patientId)
-        var historyResult = await ToolGetPatientHistoryAsync(request.PatientId);
-        var log2 = await SaveAgentLogAsync(request.PatientId, "GetPatientHistory",
-            JsonSerializer.Serialize(new { patientId = request.PatientId }),
-            historyResult.ResultJson,
-            "Step 2: Historical medical profile and prior bookings retrieved");
-        logIds.Add(log2.Id);
+            await AddWorkflowAuditLogAsync(workflow.Id, "ValidatePatientEligibility",
+                JsonSerializer.Serialize(new { patientId = request.PatientId }),
+                eligibilityResult.ResultJson, correlationId, (int)t1.ElapsedMilliseconds);
 
-        // Step 3: Tool Call - FormatIntakeSummary(rawText)
-        var summaryResult = await ToolFormatIntakeSummaryAsync(request.RawText);
-        var log3 = await SaveAgentLogAsync(request.PatientId, "FormatIntakeSummary",
-            JsonSerializer.Serialize(new { rawText = request.RawText }),
-            summaryResult.ResultJson,
-            "Step 3: Unstructured text structured into symptoms, severity, and preferences");
-        logIds.Add(log3.Id);
+            var log1 = await SaveAgentLogAsync(request.PatientId, "ValidatePatientEligibility",
+                JsonSerializer.Serialize(new { patientId = request.PatientId }),
+                eligibilityResult.ResultJson,
+                "Step 1: Patient eligibility validated");
+            logIds.Add(log1.Id);
 
-        // Step 4: Synthesize Structured Execution Contract
-        var patient = await _context.Patients
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == request.PatientId);
+            // Parse eligibility
+            var eligibilityDoc = JsonDocument.Parse(eligibilityResult.ResultJson);
+            var isEligible = eligibilityDoc.RootElement.GetProperty("isEligible").GetBoolean();
+            if (!isEligible)
+            {
+                var reason = eligibilityDoc.RootElement.GetProperty("reason").GetString()
+                             ?? "Patient is not currently eligible for booking.";
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorCode = "PATIENT_INELIGIBLE";
+                workflow.ErrorMessage = reason;
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.FinalOutcome = $"Ineligible: {reason}";
+                workflow.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return (false, reason, null);
+            }
 
-        if (patient == null)
-        {
-            return (false, "Patient not found.", null);
-        }
+            // Step 2: Tool Call - GetPatientHistory(patientId)
+            var t2 = Stopwatch.StartNew();
+            var historyResult = await ToolGetPatientHistoryAsync(request.PatientId);
+            t2.Stop();
 
-        var parsedSummary = JsonSerializer.Deserialize<IntakeParsedSummaryPayload>(summaryResult.ResultJson, JsonOptions) ?? new IntakeParsedSummaryPayload();
+            await AddWorkflowAuditLogAsync(workflow.Id, "GetPatientHistory",
+                JsonSerializer.Serialize(new { patientId = request.PatientId }),
+                historyResult.ResultJson, correlationId, (int)t2.ElapsedMilliseconds);
 
-        var structuredResponse = new IntakeStructuredResponseDto
-        {
-            PatientId = patient.Id,
-            PatientMetadata = new ValidatedPatientMetadataDto
+            var log2 = await SaveAgentLogAsync(request.PatientId, "GetPatientHistory",
+                JsonSerializer.Serialize(new { patientId = request.PatientId }),
+                historyResult.ResultJson,
+                "Step 2: Historical medical profile and prior bookings retrieved");
+            logIds.Add(log2.Id);
+
+            // Step 3: Tool Call - FormatIntakeSummary(rawText)
+            var t3 = Stopwatch.StartNew();
+            var summaryResult = await ToolFormatIntakeSummaryAsync(request.RawText);
+            t3.Stop();
+
+            await AddWorkflowAuditLogAsync(workflow.Id, "FormatIntakeSummary",
+                JsonSerializer.Serialize(new { rawTextLength = request.RawText.Length }),
+                summaryResult.ResultJson, correlationId, (int)t3.ElapsedMilliseconds);
+
+            var log3 = await SaveAgentLogAsync(request.PatientId, "FormatIntakeSummary",
+                JsonSerializer.Serialize(new { rawText = request.RawText }),
+                summaryResult.ResultJson,
+                "Step 3: Unstructured text structured into symptoms, severity, and preferences");
+            logIds.Add(log3.Id);
+
+            // Step 4: Synthesize Structured Execution Contract
+            var patient = await _context.Patients
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == request.PatientId);
+
+            if (patient == null)
+            {
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorMessage = "Patient not found during synthesis step.";
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return (false, "Patient not found.", null);
+            }
+
+            var parsedSummary = JsonSerializer.Deserialize<IntakeParsedSummaryPayload>(
+                summaryResult.ResultJson, JsonOptions) ?? new IntakeParsedSummaryPayload();
+
+            var structuredResponse = new IntakeStructuredResponseDto
             {
                 PatientId = patient.Id,
-                Name = patient.Name,
-                Age = DateTime.UtcNow.Year - patient.DateOfBirth.Year - (DateTime.UtcNow.DayOfYear < patient.DateOfBirth.DayOfYear ? 1 : 0),
-                Gender = patient.Gender,
-                NIC = patient.NIC,
-                PhoneNumber = patient.PhoneNumber,
-                EmergencyContact = patient.EmergencyContact,
-                BloodGroup = patient.BloodGroup,
-                Allergies = patient.Allergies,
-                MedicalHistory = patient.MedicalHistory,
-                IsEligible = true,
-                EligibilityStatus = "Verified & Eligible"
-            },
-            Symptoms = parsedSummary.Symptoms,
-            SeverityFlags = new IntakeSeverityFlagsDto
-            {
-                UrgencyLevel = parsedSummary.UrgencyLevel,
-                IsEmergency = parsedSummary.IsEmergency,
-                RequiresImmediateAttention = parsedSummary.IsEmergency || parsedSummary.UrgencyLevel == UrgencyLevel.High,
-                RedFlagsDetected = parsedSummary.RedFlags,
-                UrgencyNotes = parsedSummary.UrgencyNotes
-            },
-            PreferredTimeWindows = parsedSummary.PreferredTimeWindows,
-            DoctorPreferences = new IntakeDoctorPreferencesDto
-            {
-                PreferredDoctorName = parsedSummary.PreferredDoctor,
-                PreferredSpecialty = parsedSummary.PreferredSpecialty,
-                Notes = parsedSummary.DoctorPreferenceNotes
-            },
-            SummaryText = parsedSummary.FormattedSummary,
-            ExecutionPlan = new List<string>
-            {
-                "Step 1: Patient identity & eligibility verified (No blocking safety locks)",
-                "Step 2: Medical history & pre-existing conditions referenced",
-                "Step 3: Unstructured symptom text structured with duration & severity ratings",
-                parsedSummary.IsEmergency
-                    ? "Step 4: [SAFETY TRIGGER] Red flags identified. Escalating to Emergency Triage & Admin Oversight"
-                    : $"Step 4: Forwarding structured package to Component C (Triage: {parsedSummary.PreferredSpecialty ?? "General Practice"}) and Component B (Scheduling)"
-            },
-            ProcessedAt = DateTime.UtcNow,
-            GeneratedLogIds = logIds
-        };
+                PatientMetadata = new ValidatedPatientMetadataDto
+                {
+                    PatientId = patient.Id,
+                    Name = patient.Name,
+                    Age = DateTime.UtcNow.Year - patient.DateOfBirth.Year
+                          - (DateTime.UtcNow.DayOfYear < patient.DateOfBirth.DayOfYear ? 1 : 0),
+                    Gender = patient.Gender,
+                    NIC = patient.NIC,
+                    PhoneNumber = patient.PhoneNumber,
+                    EmergencyContact = patient.EmergencyContact,
+                    BloodGroup = patient.BloodGroup,
+                    Allergies = patient.Allergies,
+                    MedicalHistory = patient.MedicalHistory,
+                    IsEligible = true,
+                    EligibilityStatus = "Verified & Eligible"
+                },
+                Symptoms = parsedSummary.Symptoms,
+                SeverityFlags = new IntakeSeverityFlagsDto
+                {
+                    UrgencyLevel = parsedSummary.UrgencyLevel,
+                    IsEmergency = parsedSummary.IsEmergency,
+                    RequiresImmediateAttention = parsedSummary.IsEmergency
+                                                || parsedSummary.UrgencyLevel == UrgencyLevel.High,
+                    RedFlagsDetected = parsedSummary.RedFlags,
+                    UrgencyNotes = parsedSummary.UrgencyNotes
+                },
+                PreferredTimeWindows = parsedSummary.PreferredTimeWindows,
+                DoctorPreferences = new IntakeDoctorPreferencesDto
+                {
+                    PreferredDoctorName = parsedSummary.PreferredDoctor,
+                    PreferredSpecialty = parsedSummary.PreferredSpecialty,
+                    Notes = parsedSummary.DoctorPreferenceNotes
+                },
+                SummaryText = parsedSummary.FormattedSummary,
+                ExecutionPlan = new List<string>
+                {
+                    "Step 1: Patient identity & eligibility verified (No blocking safety locks)",
+                    "Step 2: Medical history & pre-existing conditions referenced",
+                    "Step 3: Unstructured symptom text structured with duration & severity ratings",
+                    parsedSummary.IsEmergency
+                        ? "Step 4: [SAFETY TRIGGER] Red flags identified. Escalating to Emergency Triage & Admin Oversight"
+                        : $"Step 4: Forwarding structured package to Component C (Triage: {parsedSummary.PreferredSpecialty ?? "General Practice"}) and Component B (Scheduling)"
+                },
+                ProcessedAt = DateTime.UtcNow,
+                GeneratedLogIds = logIds
+            };
 
-        return (true, null, structuredResponse);
+            // ΓöÇΓöÇ Step 5: Deterministic Schema Validation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            var (isValid, validationError) = IntakeAgentOutputValidator.Validate(structuredResponse);
+            if (!isValid)
+            {
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorCode = "SCHEMA_VIOLATION";
+                workflow.ErrorMessage = validationError;
+                workflow.ValidationSummary = validationError;
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return (false, $"Agent output failed schema validation: {validationError}", null);
+            }
+
+            // ΓöÇΓöÇ Mark workflow complete ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            sw.Stop();
+            workflow.Status = WorkflowStatus.Completed;
+            workflow.FinalOutcome = $"IntakeStructured: PatientId={patient.Id}, Urgency={parsedSummary.UrgencyLevel}, IsEmergency={parsedSummary.IsEmergency}";
+            workflow.ValidationSummary = "All 11 schema rules passed.";
+            workflow.CompletedAt = DateTime.UtcNow;
+            workflow.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return (true, null, structuredResponse);
+        }
+        catch (Exception ex)
+        {
+            workflow.Status = WorkflowStatus.SafeFailed;
+            workflow.ErrorCode = "UNEXPECTED_EXCEPTION";
+            workflow.ErrorMessage = ex.Message;
+            workflow.SafeFailedAt = DateTime.UtcNow;
+            workflow.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            throw;
+        }
     }
 
     public async Task<(bool Success, string? ErrorMessage, string ResultJson)> ToolGetPatientHistoryAsync(int patientId)
@@ -396,6 +499,36 @@ public class IntakeAgentService : IIntakeAgentService
         _context.IntakeAgentLogs.Add(log);
         await _context.SaveChangesAsync();
         return log;
+    }
+
+    /// <summary>
+    /// Writes a per-tool AuditLog entry into the shared AgentWorkflow orchestration table
+    /// so Student 4's admin oversight can track every tool invocation.
+    /// </summary>
+    private async Task AddWorkflowAuditLogAsync(
+        int workflowId,
+        string toolCalled,
+        string inputJson,
+        string outputJson,
+        string correlationId,
+        int durationMs)
+    {
+        var auditLog = new AuditLog
+        {
+            WorkflowId = workflowId,
+            AgentName = "IntakeStructuringAgent",
+            ToolCalled = toolCalled,
+            ToolOutput = outputJson,
+            StepName = toolCalled,
+            CorrelationId = correlationId,
+            ContractVersion = "intake-agent.v1",
+            Outcome = "Success",
+            DurationMs = durationMs,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _context.AuditLogs.Add(auditLog);
+        await _context.SaveChangesAsync();
     }
 
     private static string? ExtractDuration(string text)

@@ -1,10 +1,13 @@
 export default function Sidebar({ activeArea, onNavigate, onSignOut }) {
   const userName = localStorage.getItem('channel-center-user') || 'Administrator';
   const items = [
-    ['workflows', '◈', 'Workflow review'],
-    ['audit', '≡', 'Audit trail'],
-    ['analytics', '▥', 'Safety analytics'],
-    ['scheduling', '⌁', 'Doctor scheduling'],
+    ['patients', '≡ƒæÑ', 'Patient directory'],
+    ['appointments', '≡ƒôà', 'Appointments'],
+    ['intake', 'ΓÜí', 'AI Intake Agent'],
+    ['workflows', 'Γùê', 'Workflow review'],
+    ['audit', 'Γëí', 'Audit trail'],
+    ['analytics', 'ΓûÑ', 'Safety analytics'],
+    ['scheduling', 'Γîü', 'Doctor scheduling'],
   ];
 
   return (
@@ -29,7 +32,7 @@ export default function Sidebar({ activeArea, onNavigate, onSignOut }) {
         <div className="api-status"><span className="status-dot" /> API connected</div>
         <button className="user-menu" onClick={onSignOut}>
           <span className="avatar">KP</span>
-          <span><strong>{userName}</strong><small>Admin · Sign out</small></span>
+          <span><strong>{userName}</strong><small>Admin ┬╖ Sign out</small></span>
         </button>
       </div>
     </aside>
