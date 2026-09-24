@@ -15,6 +15,7 @@ public class SafetyAuditorService : ISafetyAuditorService
     private readonly ApplicationDbContext _context;
     private readonly HttpClient _httpClient;
     private readonly SafetyAuditorOptions _options;
+    private readonly ISafetyAuditorReadService? _readService;
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() }
@@ -23,11 +24,13 @@ public class SafetyAuditorService : ISafetyAuditorService
     public SafetyAuditorService(
         ApplicationDbContext context,
         HttpClient httpClient,
-        IOptions<SafetyAuditorOptions> options)
+        IOptions<SafetyAuditorOptions> options,
+        ISafetyAuditorReadService? readService = null)
     {
         _context = context;
         _httpClient = httpClient;
         _options = options.Value;
+        _readService = readService;
     }
 
     public async Task<SafetyAuditResponseDto> StartAsync(
@@ -68,6 +71,19 @@ public class SafetyAuditorService : ISafetyAuditorService
 
         try
         {
+            if (request.AppointmentId.HasValue &&
+                !request.Proposal.ContainsKey("context") &&
+                _readService != null)
+            {
+                var persistedContext = await _readService.GetAppointmentContextAsync(
+                    request.AppointmentId.Value,
+                    cancellationToken);
+                if (persistedContext != null)
+                {
+                    request.Proposal["context"] = persistedContext;
+                }
+            }
+
             using var response = await _httpClient.PostAsJsonAsync(
                 $"/internal/v1/safety-audits/{workflowId}",
                 new
@@ -75,6 +91,7 @@ public class SafetyAuditorService : ISafetyAuditorService
                     workflowId,
                     request.Objective,
                     request.Proposal,
+                    request.AppointmentId,
                     request.SourceAgent,
                     request.CorrelationId,
                     request.ContractVersion
@@ -156,6 +173,18 @@ public class SafetyAuditorService : ISafetyAuditorService
                 workflow,
                 "malformed_response",
                 "Safety Auditor returned an invalid response.",
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return await MarkSafeFailedAsync(
+                workflow,
+                "auditor_error",
+                "Safety Auditor failed safely before any appointment action was executed.",
                 cancellationToken);
         }
     }

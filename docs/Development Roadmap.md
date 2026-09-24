@@ -9,7 +9,7 @@
 ###### **Component 2 - Thanuja**
 
 1. Create schedule, room, and consultation tables. Build endpoints to manage doctor availability and notes
-2. Develop the Schedule Agent to analyze backend availability and propose conflict-free time slots.
+2. Develop the Schedule Agent to analyze backend availability and propose conflict-free time slots for patients.
 3. Build the Flutter doctor agenda (mobile staff) and React schedule configuration UI.
 
 

@@ -75,6 +75,17 @@ public class ApplicationDbContext : DbContext
             .Property(w => w.ContractVersion)
             .HasMaxLength(32);
 
+        modelBuilder.Entity<AgentWorkflow>()
+            .HasIndex(w => w.AppointmentId)
+            .IsUnique()
+            .HasFilter("\"AppointmentId\" IS NOT NULL");
+
+        modelBuilder.Entity<AgentWorkflow>()
+            .HasOne(w => w.Appointment)
+            .WithOne(a => a.SafetyAuditWorkflow)
+            .HasForeignKey<AgentWorkflow>(w => w.AppointmentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<AuditLog>()
             .Property(a => a.CorrelationId)
             .HasMaxLength(128);

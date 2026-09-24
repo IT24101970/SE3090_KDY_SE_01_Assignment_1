@@ -19,5 +19,7 @@ public class SafetyAuditStartRequestDto
     [MaxLength(100)]
     public string SourceAgent { get; set; } = "ChannelCenter.API";
 
+    public int? AppointmentId { get; set; }
+
     public Dictionary<string, object?> Proposal { get; set; } = new();
 }

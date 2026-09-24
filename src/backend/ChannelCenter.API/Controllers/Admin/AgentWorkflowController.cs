@@ -142,4 +142,33 @@ public class AgentWorkflowsController : ControllerBase
 
         return Ok(response);
     }
+
+    [HttpPost("{id}/restart")]
+    public async Task<IActionResult> RestartWorkflow(
+        int id,
+        [FromBody] RestartWorkflowRequestDto request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var claimValue = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var adminUserId = int.TryParse(claimValue, out var parsedId)
+            ? parsedId
+            : 1;
+        var (success, errorMessage, response) =
+            await _workflowService.RestartWorkflowAsync(id, request, adminUserId);
+
+        if (!success)
+        {
+            if (errorMessage != null && errorMessage.Contains("not found"))
+            {
+                return NotFound(new { message = errorMessage });
+            }
+            return BadRequest(new { message = errorMessage });
+        }
+
+        return Ok(response);
+    }
 }

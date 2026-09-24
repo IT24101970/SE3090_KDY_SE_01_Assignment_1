@@ -113,6 +113,7 @@ builder.Services.AddScoped<IAgentWorkflowService, AgentWorkflowService>();
 builder.Services.AddScoped<IAdminOverrideService, AdminOverrideService>();
 builder.Services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<ISafetyAuditorReadService, SafetyAuditorReadService>();
 
 // Internal Safety Auditor calls use a separate shared secret, never a browser JWT.
 builder.Services.Configure<SafetyAuditorOptions>(

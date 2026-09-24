@@ -212,4 +212,36 @@ public class AgentWorkflowServiceTests
         var terminated = await context.AgentWorkflows.FindAsync(dto.Id);
         Assert.Equal(WorkflowStatus.Terminated, terminated!.Status);
     }
+
+    [Fact]
+    public async Task RestartWorkflow_RestartsAnyPausedWorkflow_AndRecordsAdminAction()
+    {
+        using var context = TestDbContextFactory.CreateInMemoryDbContext();
+        var workflow = new AgentWorkflow
+        {
+            Objective = "Paused for a schedule mismatch",
+            Status = WorkflowStatus.PausedForApproval,
+            RequiresHumanApproval = true,
+            CorrelationId = "original-correlation"
+        };
+        context.AgentWorkflows.Add(workflow);
+        await context.SaveChangesAsync();
+
+        var controller = new AgentWorkflowsController(context);
+        var result = await controller.RestartWorkflow(
+            workflow.Id,
+            new RestartWorkflowRequestDto { Reason = "Schedule corrected by admin" });
+
+        var response = Assert.IsType<OkObjectResult>(result);
+        var dto = Assert.IsType<AgentWorkflowResponseDto>(response.Value);
+        Assert.Equal(WorkflowStatus.Running, dto.Status);
+        Assert.NotEqual("original-correlation", dto.CorrelationId);
+
+        var updated = await context.AgentWorkflows.FindAsync(workflow.Id);
+        Assert.False(updated!.RequiresHumanApproval);
+        Assert.Contains(
+            context.AuditLogs,
+            log => log.WorkflowId == workflow.Id &&
+                   log.ToolCalled == "Admin_RestartWorkflow");
+    }
 }

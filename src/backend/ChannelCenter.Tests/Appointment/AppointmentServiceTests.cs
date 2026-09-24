@@ -1,12 +1,40 @@
 using ChannelCenter.API.DTOs.Appointment;
 using ChannelCenter.API.Models;
 using ChannelCenter.API.Services.Appointment;
+using ChannelCenter.API.Services.SafetyAuditor;
+using ChannelCenter.API.DTOs.SafetyAuditor;
 using Xunit;
 
 namespace ChannelCenter.Tests.Appointments;
 
 public class AppointmentServiceTests
 {
+    private sealed class RecordingSafetyAuditor : ISafetyAuditorService
+    {
+        public int Calls { get; private set; }
+
+        public Task<SafetyAuditResponseDto> StartAsync(
+            int workflowId,
+            SafetyAuditStartRequestDto request,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(new SafetyAuditResponseDto
+            {
+                WorkflowId = workflowId,
+                CorrelationId = request.CorrelationId,
+                Status = WorkflowStatus.Completed,
+                RiskLevel = "Low"
+            });
+        }
+
+        public Task<SafetyAuditResponseDto> ApplyCallbackAsync(
+            int workflowId,
+            SafetyAuditResponseDto response,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(response);
+    }
+
     private static async Task<(Patient patient, Doctor doctor, DoctorSchedule schedule)> SetupBaseDataAsync(ChannelCenter.API.Data.ApplicationDbContext context, int maxPatients = 5)
     {
         var user = new User { FullName = "Dr. Silva", Email = "silva@hospital.com", Role = UserRole.Doctor };
@@ -81,6 +109,31 @@ public class AppointmentServiceTests
         Assert.NotNull(data);
         Assert.Equal(AppointmentStatus.Pending, data.Status);
         Assert.Equal("Annual cardiac checkup", data.ReasonForVisit);
+    }
+
+    [Fact]
+    public async Task CreateAppointmentAsync_SavesBeforeSynchronousSafetyAudit_WithoutChangingStatus()
+    {
+        using var context = TestDbContextFactory.CreateInMemoryDbContext();
+        var (patient, doctor, schedule) = await SetupBaseDataAsync(context);
+        var auditor = new RecordingSafetyAuditor();
+        var service = new AppointmentService(context, auditor);
+
+        var (success, _, data) = await service.CreateAppointmentAsync(new CreateAppointmentDto
+        {
+            PatientId = patient.Id,
+            DoctorId = doctor.Id,
+            ScheduleId = schedule.Id,
+            AppointmentDate = schedule.StartTime,
+            ReasonForVisit = "Synchronous audit"
+        });
+
+        Assert.True(success);
+        Assert.Equal(AppointmentStatus.Pending, data!.Status);
+        Assert.Equal(1, auditor.Calls);
+        var saved = await context.Appointments.FindAsync(data.Id);
+        var workflow = context.AgentWorkflows.Single(w => w.AppointmentId == saved!.Id);
+        Assert.Equal(WorkflowStatus.Completed, workflow.Status);
     }
 
     [Fact]

@@ -2,18 +2,24 @@ using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.DTOs.Appointment;
+using ChannelCenter.API.DTOs.SafetyAuditor;
 //using ChannelCenter.API.DTOs.Common;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.SafetyAuditor;
 
 namespace ChannelCenter.API.Services.Appointment;
 
 public class AppointmentService : IAppointmentService
 {
     private readonly ApplicationDbContext _context;
+    private readonly ISafetyAuditorService? _safetyAuditorService;
 
-    public AppointmentService(ApplicationDbContext context)
+    public AppointmentService(
+        ApplicationDbContext context,
+        ISafetyAuditorService? safetyAuditorService = null)
     {
         _context = context;
+        _safetyAuditorService = safetyAuditorService;
     }
 
     public async Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> CreateAppointmentAsync(CreateAppointmentDto dto)
@@ -83,8 +89,77 @@ public class AppointmentService : IAppointmentService
         _context.Appointments.Add(appointment);
         await _context.SaveChangesAsync();
 
+        await StartSafetyAuditAfterSaveAsync(appointment);
+
         var response = await GetAppointmentByIdAsync(appointment.Id);
         return (true, null, response);
+    }
+
+    private async Task StartSafetyAuditAfterSaveAsync(Models.Appointment appointment)
+    {
+        if (_safetyAuditorService == null)
+        {
+            return;
+        }
+
+        var workflow = await _context.AgentWorkflows
+            .FirstOrDefaultAsync(w => w.AppointmentId == appointment.Id);
+
+        if (workflow == null)
+        {
+            workflow = new AgentWorkflow
+            {
+                AppointmentId = appointment.Id,
+                Objective = $"Safety review for appointment {appointment.Id}",
+                Status = WorkflowStatus.Running,
+                RequiresHumanApproval = false,
+                CorrelationId = $"appointment-{appointment.Id}-safety-audit",
+                ContractVersion = "safety-audit.v1",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.AgentWorkflows.Add(workflow);
+            await _context.SaveChangesAsync();
+        }
+
+        var request = new SafetyAuditStartRequestDto
+        {
+            Objective = workflow.Objective,
+            CorrelationId = workflow.CorrelationId,
+            ContractVersion = workflow.ContractVersion,
+            SourceAgent = "Component2.AppointmentService",
+            AppointmentId = appointment.Id,
+            Proposal = new Dictionary<string, object?>
+            {
+                ["action"] = "review_appointment",
+                ["appointmentId"] = appointment.Id,
+                ["evidence"] = new[] { $"appointment:{appointment.Id}" }
+            }
+        };
+
+        try
+        {
+            var auditResult = await _safetyAuditorService.StartAsync(workflow.Id, request);
+            workflow.Status = auditResult.Status;
+            workflow.RequiresHumanApproval = auditResult.RequiresApproval;
+            workflow.RiskLevel = auditResult.RiskLevel;
+            workflow.ValidationSummary = auditResult.ValidationSummary;
+            workflow.FinalOutcome = auditResult.FinalOutcome;
+            workflow.ErrorCode = auditResult.Error?.Code;
+            workflow.ErrorMessage = auditResult.Error?.Message;
+            workflow.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception error) when (error is HttpRequestException or InvalidOperationException)
+        {
+            // The appointment is already durable; the workflow records an unavailable auditor.
+            workflow.Status = WorkflowStatus.SafeFailed;
+            workflow.ErrorCode = "auditor_unavailable";
+            workflow.ErrorMessage = error.Message.Length > 500 ? error.Message[..500] : error.Message;
+            workflow.SafeFailedAt = DateTime.UtcNow;
+            workflow.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<AppointmentResponseDto?> GetAppointmentByIdAsync(int id)

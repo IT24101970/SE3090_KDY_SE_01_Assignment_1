@@ -53,6 +53,7 @@ class SafetyAuditRequest(StrictModel):
     source_agent: str = Field(default="ChannelCenter.API", alias="sourceAgent", max_length=100)
     correlation_id: str = Field(alias="correlationId", min_length=1, max_length=128)
     contract_version: str = Field(default="safety-audit.v1", alias="contractVersion", max_length=32)
+    appointment_id: int | None = Field(default=None, alias="appointmentId", gt=0)
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
@@ -68,6 +69,50 @@ class SafetyAuditRequest(StrictModel):
         if contains_prompt_injection(self.proposal) or contains_prompt_injection(self.objective):
             raise ValueError("prompt injection content is not accepted")
         return self
+
+
+class TriageAuditContext(StrictModel):
+    id: int = 0
+    urgency_level: str = Field(default="", alias="urgencyLevel")
+    recommended_specialty: str = Field(default="", alias="recommendedSpecialty")
+    raw_symptoms: str = Field(default="", alias="rawSymptoms")
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+
+class DoctorAuditContext(StrictModel):
+    id: int = 0
+    specialty_id: int = Field(default=0, alias="specialtyId")
+    specialty_name: str = Field(default="", alias="specialtyName")
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+
+class ScheduleAuditContext(StrictModel):
+    id: int = 0
+    doctor_id: int = Field(default=0, alias="doctorId")
+    start_time: datetime | None = Field(default=None, alias="startTime")
+    end_time: datetime | None = Field(default=None, alias="endTime")
+    max_patients: int = Field(default=0, alias="maxPatients")
+    booked_patients: int = Field(default=0, alias="bookedPatients")
+    is_available: bool = Field(default=False, alias="isAvailable")
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+
+class AppointmentAuditContext(StrictModel):
+    appointment_id: int = Field(alias="appointmentId", gt=0)
+    patient_id: int = Field(default=0, alias="patientId")
+    doctor_id: int = Field(default=0, alias="doctorId")
+    schedule_id: int = Field(default=0, alias="scheduleId")
+    appointment_date: datetime | None = Field(default=None, alias="appointmentDate")
+    appointment_status: str = Field(default="", alias="appointmentStatus")
+    reason_for_visit: str = Field(default="", alias="reasonForVisit")
+    triage: TriageAuditContext | None = None
+    doctor: DoctorAuditContext | None = None
+    schedule: ScheduleAuditContext | None = None
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class PlanStep(StrictModel):
