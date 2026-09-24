@@ -14,7 +14,11 @@ from app.models.contracts import (
     ToolCall,
     utc_now,
 )
-from app.tools.registry import PauseWorkflowInput, ToolRegistry
+from app.tools.registry import (
+    GetAppointmentContextInput,
+    PauseWorkflowInput,
+    ToolRegistry,
+)
 
 
 class GraphState(TypedDict, total=False):
@@ -64,7 +68,12 @@ async def _pause_or_complete(state: GraphState, tools: ToolRegistry) -> dict[str
     request = state["request"]
     risk = state.get("risk_level", RiskLevel.HIGH)
     violations = state.get("violations", [])
-    should_pause = bool(violations) or risk in {RiskLevel.HIGH, RiskLevel.EMERGENCY}
+    # A matching high/emergency appointment is safe to complete. Preserve the
+    # legacy standalone proposal behavior, where high-impact risk needs review.
+    has_appointment_context = isinstance(request.proposal.get("context"), dict)
+    should_pause = bool(violations) or (
+        not has_appointment_context and risk in {RiskLevel.HIGH, RiskLevel.EMERGENCY}
+    )
     tool_calls = list(state.get("tool_calls", []))
 
     if should_pause:
@@ -122,6 +131,25 @@ def build_graph(tools: ToolRegistry):
 
 
 async def run_audit(request: SafetyAuditRequest, tools: ToolRegistry) -> SafetyAuditResponse:
+    if request.appointment_id:
+        proposal = dict(request.proposal)
+        try:
+            context, _ = await tools.call(
+                "GetAppointmentContext",
+                GetAppointmentContextInput(appointmentId=request.appointment_id),
+            )
+            if "appointmentId" in context:
+                proposal["context"] = context
+                triage = context.get("triage") or {}
+                proposal["urgency"] = str(
+                    triage.get("urgencyLevel", proposal.get("urgency", "low"))
+                ).lower()
+            else:
+                proposal["contextError"] = True
+        except Exception:
+            proposal["contextError"] = True
+        request = request.model_copy(update={"proposal": proposal})
+
     result = await build_graph(tools).ainvoke({"request": request, "steps": [], "tool_calls": []})
     return SafetyAuditResponse(
         workflowId=request.workflow_id,

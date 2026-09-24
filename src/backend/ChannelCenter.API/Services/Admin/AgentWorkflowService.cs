@@ -2,17 +2,23 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
+using ChannelCenter.API.DTOs.SafetyAuditor;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.SafetyAuditor;
 
 namespace ChannelCenter.API.Services.Admin;
 
 public class AgentWorkflowService : IAgentWorkflowService
 {
     private readonly ApplicationDbContext _context;
+    private readonly ISafetyAuditorService? _safetyAuditorService;
 
-    public AgentWorkflowService(ApplicationDbContext context)
+    public AgentWorkflowService(
+        ApplicationDbContext context,
+        ISafetyAuditorService? safetyAuditorService = null)
     {
         _context = context;
+        _safetyAuditorService = safetyAuditorService;
     }
 
     public async Task<IEnumerable<AgentWorkflowResponseDto>> GetWorkflowsAsync(WorkflowStatus? status = null)
@@ -40,6 +46,7 @@ public class AgentWorkflowService : IAgentWorkflowService
                 FinalOutcome = w.FinalOutcome,
                 ErrorCode = w.ErrorCode,
                 ErrorMessage = w.ErrorMessage,
+                AppointmentId = w.AppointmentId,
                 CompletedAt = w.CompletedAt,
                 SafeFailedAt = w.SafeFailedAt,
                 CreatedAt = w.CreatedAt
@@ -73,6 +80,7 @@ public class AgentWorkflowService : IAgentWorkflowService
             FinalOutcome = workflow.FinalOutcome,
             ErrorCode = workflow.ErrorCode,
             ErrorMessage = workflow.ErrorMessage,
+            AppointmentId = workflow.AppointmentId,
             CompletedAt = workflow.CompletedAt,
             SafeFailedAt = workflow.SafeFailedAt,
             CreatedAt = workflow.CreatedAt,
@@ -235,5 +243,69 @@ public class AgentWorkflowService : IAgentWorkflowService
         await _context.SaveChangesAsync();
 
         return (true, null);
+    }
+
+    public async Task<(bool Success, string? ErrorMessage, AgentWorkflowResponseDto? Response)> RestartWorkflowAsync(
+        int id,
+        RestartWorkflowRequestDto request,
+        int adminUserId)
+    {
+        var workflow = await _context.AgentWorkflows
+            .FirstOrDefaultAsync(w => w.Id == id);
+
+        if (workflow == null)
+        {
+            return (false, $"Workflow with ID {id} not found.", null);
+        }
+
+        if (workflow.Status != WorkflowStatus.PausedForApproval)
+        {
+            return (false, "Only paused workflows can be restarted.", null);
+        }
+
+        workflow.Status = WorkflowStatus.Running;
+        workflow.RequiresHumanApproval = false;
+        workflow.ErrorCode = null;
+        workflow.ErrorMessage = null;
+        workflow.CompletedAt = null;
+        workflow.SafeFailedAt = null;
+        workflow.CorrelationId = $"{workflow.CorrelationId}-restart-{Guid.NewGuid():N}";
+        workflow.UpdatedAt = DateTime.UtcNow;
+
+        _context.AuditLogs.Add(new AuditLog
+        {
+            WorkflowId = workflow.Id,
+            AgentName = "Admin",
+            ToolCalled = "Admin_RestartWorkflow",
+            StepName = "Restart",
+            CorrelationId = workflow.CorrelationId,
+            ContractVersion = workflow.ContractVersion,
+            Outcome = $"Restarted by admin {adminUserId}",
+            ToolOutput = JsonSerializer.Serialize(new { request.Reason }),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        if (_safetyAuditorService != null && workflow.AppointmentId.HasValue)
+        {
+            var auditRequest = new SafetyAuditStartRequestDto
+            {
+                Objective = workflow.Objective,
+                CorrelationId = workflow.CorrelationId,
+                ContractVersion = workflow.ContractVersion,
+                SourceAgent = "Admin.RestartWorkflow",
+                AppointmentId = workflow.AppointmentId,
+                Proposal = new Dictionary<string, object?>
+                {
+                    ["action"] = "review_appointment",
+                    ["appointmentId"] = workflow.AppointmentId.Value,
+                    ["evidence"] = new[] { $"appointment:{workflow.AppointmentId.Value}" }
+                }
+            };
+            await _safetyAuditorService.StartAsync(workflow.Id, auditRequest);
+        }
+
+        return (true, null, await GetWorkflowByIdAsync(id));
     }
 }

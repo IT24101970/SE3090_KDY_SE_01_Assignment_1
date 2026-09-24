@@ -14,6 +14,7 @@ public class AgentWorkflow
     public string? FinalOutcome { get; set; }
     public string? ErrorCode { get; set; }
     public string? ErrorMessage { get; set; }
+    public int? AppointmentId { get; set; }
     public DateTime? SafetyAuditStartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? SafeFailedAt { get; set; }
@@ -23,4 +24,5 @@ public class AgentWorkflow
     // Navigation Properties
     public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
     public ICollection<AdminApproval> AdminApprovals { get; set; } = new List<AdminApproval>();
+    public Appointment? Appointment { get; set; }
 }
