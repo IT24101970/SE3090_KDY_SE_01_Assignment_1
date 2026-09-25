@@ -6,8 +6,11 @@ from app.config import Settings, get_settings
 from app.graphs.safety_graph import run_audit
 from app.models.contracts import SafetyAuditRequest, SafetyAuditResponse
 from app.tools.registry import ToolRegistry
+from app.DoctorScheduling.routes import router as doctor_scheduling_router
 
 router = APIRouter()
+router.include_router(doctor_scheduling_router)
+
 
 
 def _authorized(provided_key: str | None, settings: Settings) -> None:

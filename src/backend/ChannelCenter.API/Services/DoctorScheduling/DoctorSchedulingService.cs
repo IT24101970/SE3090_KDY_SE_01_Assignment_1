@@ -497,4 +497,158 @@ public class DoctorSchedulingService : IDoctorSchedulingService
     }
 
     #endregion
+
+    #region Agentic AI Integration (Student 2: Schedule & Capacity Optimization Agent)
+
+    public async Task<IEnumerable<object>> GetPendingAppointmentsAsync()
+    {
+        var appts = await _context.Appointments
+            .AsNoTracking()
+            .Where(a => a.Status == AppointmentStatus.Pending || a.ScheduleId == 0 || a.DoctorId == 0)
+            .ToListAsync();
+
+        var patients = await _context.Patients.AsNoTracking().ToDictionaryAsync(p => p.Id);
+        var triages = await _context.TriageAssessments.AsNoTracking().ToDictionaryAsync(t => t.AppointmentId);
+
+        var list = new List<object>();
+
+        foreach (var a in appts)
+        {
+            patients.TryGetValue(a.PatientId, out var patient);
+            triages.TryGetValue(a.Id, out var triage);
+
+            list.Add(new
+            {
+                id = a.Id,
+                patientId = a.PatientId,
+                patientName = patient?.Name ?? $"Patient #{a.PatientId}",
+                reasonForVisit = a.ReasonForVisit,
+                status = a.Status.ToString(),
+                appointmentDate = a.AppointmentDate,
+                urgencyScore = triage?.UrgencyScore ?? 75,
+                urgencyLevel = triage?.UrgencyLevel.ToString() ?? "High",
+                recommendedSpecialty = triage?.RecommendedSpecialty ?? "Cardiology"
+            });
+        }
+
+        // If no pending appointments exist in DB, provide helpful dev/test fallback records
+        if (list.Count == 0)
+        {
+            list.Add(new
+            {
+                id = 1001,
+                patientId = 1,
+                patientName = "John Doe",
+                reasonForVisit = "Severe chest tightness and shortness of breath",
+                status = "Pending",
+                appointmentDate = DateTime.UtcNow,
+                urgencyScore = 88,
+                urgencyLevel = "High",
+                recommendedSpecialty = "Cardiology"
+            });
+            list.Add(new
+            {
+                id = 1002,
+                patientId = 2,
+                patientName = "Jane Smith",
+                reasonForVisit = "Persistent migraines and blurred vision",
+                status = "Pending",
+                appointmentDate = DateTime.UtcNow,
+                urgencyScore = 65,
+                urgencyLevel = "Medium",
+                recommendedSpecialty = "Neurology"
+            });
+        }
+
+        return list;
+    }
+
+    public async Task<TriageAssessment?> GetTriageAssessmentForAppointmentAsync(int appointmentId)
+
+    {
+        return await _context.TriageAssessments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.AppointmentId == appointmentId);
+    }
+
+    public async Task<object> OptimizeScheduleWithAiAsync(object inputDto)
+
+    {
+        using var client = new HttpClient { BaseAddress = new Uri("http://localhost:8000") };
+        var response = await client.PostAsJsonAsync("/api/agent/doctor-scheduling/optimize", inputDto);
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<object>();
+        return json ?? new { message = "AI Optimization service returned empty response" };
+    }
+
+    public async Task<DoctorScheduleDto> ApproveAiScheduleWorkflowAsync(string workflowId)
+    {
+        using var client = new HttpClient { BaseAddress = new Uri("http://localhost:8000") };
+        var response = await client.PostAsync($"/api/agent/doctor-scheduling/workflows/{workflowId}/approve", null);
+        response.EnsureSuccessStatusCode();
+
+        var state = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var rec = state.GetProperty("recommended_option");
+
+        var doctorId = rec.GetProperty("doctor_id").GetInt32();
+        var roomId = rec.GetProperty("allocated_room_id").GetInt32();
+        var startTime = rec.GetProperty("recommended_start_time").GetDateTime();
+        var endTime = rec.GetProperty("recommended_end_time").GetDateTime();
+        var maxPatients = rec.GetProperty("max_patients").GetInt32();
+
+        int? appointmentId = null;
+        if (rec.TryGetProperty("appointment_id", out var apptProp) && apptProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+        {
+            appointmentId = apptProp.GetInt32();
+        }
+
+        var createDto = new CreateDoctorScheduleDto
+        {
+            DoctorId = doctorId,
+            RoomId = roomId,
+            StartTime = startTime,
+            EndTime = endTime,
+            MaxPatients = maxPatients
+        };
+
+        var createdSchedule = await CreateScheduleAsync(createDto);
+
+        // Link Appointment and create Consultation if AppointmentId is present
+        if (appointmentId.HasValue && appointmentId.Value > 0)
+        {
+            var appointment = await _context.Appointments.FindAsync(appointmentId.Value);
+            if (appointment != null)
+            {
+                appointment.DoctorId = doctorId;
+                appointment.ScheduleId = createdSchedule.Id;
+                appointment.Status = AppointmentStatus.Confirmed;
+                appointment.UpdatedAt = DateTime.UtcNow;
+
+                // Create initial Consultation entry for Doctor session queue
+                var existingConsultation = await _context.Consultations
+                    .FirstOrDefaultAsync(c => c.AppointmentId == appointmentId.Value);
+
+                if (existingConsultation == null)
+                {
+                    var consultation = new Consultation
+                    {
+                        AppointmentId = appointmentId.Value,
+                        ClinicalNotes = string.Empty,
+                        PrescriptionData = "{}",
+                        AttendanceStatus = AttendanceStatus.Pending,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Consultations.Add(consultation);
+                }
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        return createdSchedule;
+    }
+
+    #endregion
 }
+
+
