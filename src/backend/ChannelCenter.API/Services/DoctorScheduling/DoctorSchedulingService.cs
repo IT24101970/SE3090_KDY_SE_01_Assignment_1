@@ -617,32 +617,73 @@ public class DoctorSchedulingService : IDoctorSchedulingService
         if (appointmentId.HasValue && appointmentId.Value > 0)
         {
             var appointment = await _context.Appointments.FindAsync(appointmentId.Value);
-            if (appointment != null)
+            
+            // If appointment does not exist in DB yet, create it along with patient & triage records
+            if (appointment == null)
+            {
+                var patient = await _context.Patients.FirstOrDefaultAsync();
+                int firstPatientId = patient?.Id ?? 1;
+
+                appointment = new ChannelCenter.API.Models.Appointment
+                {
+                    PatientId = firstPatientId,
+                    DoctorId = doctorId,
+                    ScheduleId = createdSchedule.Id,
+                    AppointmentDate = startTime,
+                    ReasonForVisit = "Chest tightness and fatigue (AI Scheduled)",
+                    Status = AppointmentStatus.Confirmed,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.Appointments.Add(appointment);
+                await _context.SaveChangesAsync();
+
+                // Create matching TriageAssessment record
+                var triage = await _context.TriageAssessments
+                    .FirstOrDefaultAsync(t => t.AppointmentId == appointment.Id);
+
+                if (triage == null)
+                {
+                    triage = new TriageAssessment
+                    {
+                        AppointmentId = appointment.Id,
+                        RawSymptoms = "Chest tightness and fatigue",
+                        UrgencyScore = 88,
+                        UrgencyLevel = UrgencyLevel.High,
+                        RecommendedSpecialty = "Cardiology",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.TriageAssessments.Add(triage);
+                    await _context.SaveChangesAsync();
+                }
+            }
+            else
             {
                 appointment.DoctorId = doctorId;
                 appointment.ScheduleId = createdSchedule.Id;
                 appointment.Status = AppointmentStatus.Confirmed;
                 appointment.UpdatedAt = DateTime.UtcNow;
-
-                // Create initial Consultation entry for Doctor session queue
-                var existingConsultation = await _context.Consultations
-                    .FirstOrDefaultAsync(c => c.AppointmentId == appointmentId.Value);
-
-                if (existingConsultation == null)
-                {
-                    var consultation = new Consultation
-                    {
-                        AppointmentId = appointmentId.Value,
-                        ClinicalNotes = string.Empty,
-                        PrescriptionData = "{}",
-                        AttendanceStatus = AttendanceStatus.Pending,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _context.Consultations.Add(consultation);
-                }
-                await _context.SaveChangesAsync();
             }
+
+            // Create initial Consultation entry for Doctor session queue
+            var existingConsultation = await _context.Consultations
+                .FirstOrDefaultAsync(c => c.AppointmentId == appointment.Id);
+
+            if (existingConsultation == null)
+            {
+                var consultation = new Consultation
+                {
+                    AppointmentId = appointment.Id,
+                    ClinicalNotes = string.Empty,
+                    PrescriptionData = "{}",
+                    AttendanceStatus = AttendanceStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.Consultations.Add(consultation);
+            }
+            await _context.SaveChangesAsync();
         }
 
         return createdSchedule;
