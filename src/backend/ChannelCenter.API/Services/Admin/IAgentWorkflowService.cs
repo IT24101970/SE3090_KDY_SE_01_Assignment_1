@@ -10,4 +10,8 @@ public interface IAgentWorkflowService
     Task<AgentWorkflowResponseDto> CreateWorkflowAsync(CreateWorkflowRequestDto request);
     Task<(bool Success, string? ErrorMessage, WorkflowApprovalResponseDto? Response)> ApproveWorkflowAsync(int id, WorkflowApprovalRequestDto request, int adminUserId);
     Task<(bool Success, string? ErrorMessage)> PauseWorkflowAsync(int id, PauseWorkflowRequestDto request);
+    Task<(bool Success, string? ErrorMessage, AgentWorkflowResponseDto? Response)> RestartWorkflowAsync(
+        int id,
+        RestartWorkflowRequestDto request,
+        int adminUserId);
 }

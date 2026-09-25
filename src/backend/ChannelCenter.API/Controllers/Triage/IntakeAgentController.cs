@@ -15,13 +15,7 @@ public class IntakeAgentController : ControllerBase
     {
         _intakeAgentService = intakeAgentService;
     }
-
-    // Convenience constructor for tests
-    public IntakeAgentController(ApplicationDbContext context)
-        : this(new IntakeAgentService(context))
-    {
-    }
-
+    
     // POST: api/intake-agent/process
     // Primary agent orchestrator endpoint: Transforms unstructured patient text into a structured execution package
     [HttpPost("process")]

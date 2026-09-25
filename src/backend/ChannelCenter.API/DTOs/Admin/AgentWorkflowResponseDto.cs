@@ -16,6 +16,7 @@ public class AgentWorkflowResponseDto
     public string? FinalOutcome { get; set; }
     public string? ErrorCode { get; set; }
     public string? ErrorMessage { get; set; }
+    public int? AppointmentId { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? SafeFailedAt { get; set; }
     public DateTime CreatedAt { get; set; }

@@ -62,6 +62,9 @@ namespace ChannelCenter.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AppointmentId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -116,6 +119,10 @@ namespace ChannelCenter.API.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId")
+                        .IsUnique()
+                        .HasFilter("\"AppointmentId\" IS NOT NULL");
 
                     b.HasIndex("CorrelationId");
 
@@ -706,6 +713,16 @@ namespace ChannelCenter.API.Migrations
                     b.Navigation("Workflow");
                 });
 
+            modelBuilder.Entity("ChannelCenter.API.Models.AgentWorkflow", b =>
+                {
+                    b.HasOne("ChannelCenter.API.Models.Appointment", "Appointment")
+                        .WithOne("SafetyAuditWorkflow")
+                        .HasForeignKey("ChannelCenter.API.Models.AgentWorkflow", "AppointmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Appointment");
+                });
+
             modelBuilder.Entity("ChannelCenter.API.Models.Appointment", b =>
                 {
                     b.HasOne("ChannelCenter.API.Models.Doctor", "Doctor")
@@ -838,7 +855,7 @@ namespace ChannelCenter.API.Migrations
             modelBuilder.Entity("ChannelCenter.API.Models.TriageAssessment", b =>
                 {
                     b.HasOne("ChannelCenter.API.Models.Appointment", "Appointment")
-                        .WithMany()
+                        .WithMany("TriageAssessments")
                         .HasForeignKey("AppointmentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -851,6 +868,13 @@ namespace ChannelCenter.API.Migrations
                     b.Navigation("AdminApprovals");
 
                     b.Navigation("AuditLogs");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.Appointment", b =>
+                {
+                    b.Navigation("SafetyAuditWorkflow");
+
+                    b.Navigation("TriageAssessments");
                 });
 
             modelBuilder.Entity("ChannelCenter.API.Models.ConsultationRoom", b =>

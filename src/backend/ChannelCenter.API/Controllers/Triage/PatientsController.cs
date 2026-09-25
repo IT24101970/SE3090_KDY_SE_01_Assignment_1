@@ -15,13 +15,7 @@ public class PatientsController : ControllerBase
     {
         _patientService = patientService;
     }
-
-    // Convenience constructor for direct in-memory tests
-    public PatientsController(ApplicationDbContext context)
-        : this(new PatientService(context))
-    {
-    }
-
+    
     // GET: api/patients
     // Supports query params: ?searchTerm=john&gender=Male&bloodGroup=O+&page=1&pageSize=10
     [HttpGet]

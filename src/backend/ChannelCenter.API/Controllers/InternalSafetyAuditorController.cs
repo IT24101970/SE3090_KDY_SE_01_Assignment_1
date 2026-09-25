@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.DTOs.SafetyAuditor;
@@ -16,16 +17,47 @@ public class InternalSafetyAuditorController : ControllerBase
     private const string ServiceKeyHeader = "X-Internal-Service-Key";
     private readonly ISafetyAuditorService _safetyAuditorService;
     private readonly IAgentWorkflowService _workflowService;
+    private readonly ISafetyAuditorReadService? _readService;
     private readonly SafetyAuditorOptions _options;
+
+    [ActivatorUtilitiesConstructor]
+    public InternalSafetyAuditorController(
+        ISafetyAuditorService safetyAuditorService,
+        IAgentWorkflowService workflowService,
+        ISafetyAuditorReadService readService,
+        IOptions<SafetyAuditorOptions> options)
+    {
+        _safetyAuditorService = safetyAuditorService;
+        _workflowService = workflowService;
+        _readService = readService;
+        _options = options.Value;
+    }
 
     public InternalSafetyAuditorController(
         ISafetyAuditorService safetyAuditorService,
         IAgentWorkflowService workflowService,
         IOptions<SafetyAuditorOptions> options)
+        : this(safetyAuditorService, workflowService, null!, options)
     {
-        _safetyAuditorService = safetyAuditorService;
-        _workflowService = workflowService;
-        _options = options.Value;
+    }
+
+    [HttpGet("appointments/{appointmentId:int}/context")]
+    public async Task<IActionResult> GetAppointmentContext(
+        int appointmentId,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized())
+        {
+            return Unauthorized();
+        }
+
+        if (_readService == null)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+
+        var context = await _readService.GetAppointmentContextAsync(appointmentId, cancellationToken);
+        return context == null ? NotFound() : Ok(context);
     }
 
     [HttpPost("workflows/{workflowId:int}/start")]
