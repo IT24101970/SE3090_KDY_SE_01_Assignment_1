@@ -25,19 +25,13 @@ export default function AiScheduleOptimizerModal({ isOpen, onClose, doctors, roo
             setPendingAppointments(data);
             setSelectedApptId(data[0].id);
           } else {
-            setPendingAppointments([
-              { id: 1001, patientName: "John Doe", reasonForVisit: "Severe chest tightness", recommendedSpecialty: "Cardiology", urgencyLevel: "High", urgencyScore: 88 },
-              { id: 1002, patientName: "Jane Smith", reasonForVisit: "Persistent migraines", recommendedSpecialty: "Neurology", urgencyLevel: "Medium", urgencyScore: 65 }
-            ]);
-            setSelectedApptId(1001);
+            setPendingAppointments([]);
+            setSelectedApptId('');
           }
         })
         .catch(() => {
-          setPendingAppointments([
-            { id: 1001, patientName: "John Doe", reasonForVisit: "Severe chest tightness", recommendedSpecialty: "Cardiology", urgencyLevel: "High", urgencyScore: 88 },
-            { id: 1002, patientName: "Jane Smith", reasonForVisit: "Persistent migraines", recommendedSpecialty: "Neurology", urgencyLevel: "Medium", urgencyScore: 65 }
-          ]);
-          setSelectedApptId(1001);
+          setPendingAppointments([]);
+          setSelectedApptId('');
         })
         .finally(() => setFetchingAppts(false));
     }
@@ -161,7 +155,11 @@ export default function AiScheduleOptimizerModal({ isOpen, onClose, doctors, roo
                   Select Pending Patient Appointment
                 </label>
                 {fetchingAppts ? (
-                  <div style={{ fontSize: '0.85rem', color: '#64748b', padding: 8 }}>Loading pending appointments...</div>
+                  <div style={{ fontSize: '0.85rem', color: '#64748b', padding: 8 }}>Loading pending appointments from database...</div>
+                ) : pendingAppointments.length === 0 ? (
+                  <div style={{ fontSize: '0.9rem', color: '#64748b', background: '#ffffff', padding: '10px 14px', borderRadius: 6, border: '1px solid #cbd5e1' }}>
+                    No pending unassigned appointments found in database.
+                  </div>
                 ) : (
                   <select className="ds-select" value={selectedApptId} onChange={(e) => setSelectedApptId(e.target.value)}>
                     {pendingAppointments.map((a) => (
@@ -174,7 +172,7 @@ export default function AiScheduleOptimizerModal({ isOpen, onClose, doctors, roo
               </div>
             </div>
 
-            <button type="submit" className="ds-btn ds-btn-coral" disabled={loading} style={{ marginTop: 12, padding: '12px 24px', width: '100%', fontSize: '0.95rem', fontWeight: '600' }}>
+            <button type="submit" className="ds-btn ds-btn-coral" disabled={loading || pendingAppointments.length === 0} style={{ marginTop: 12, padding: '12px 24px', width: '100%', fontSize: '0.95rem', fontWeight: '600', opacity: pendingAppointments.length === 0 ? 0.6 : 1 }}>
               {loading ? 'Running Schedule Optimizer...' : 'Run Schedule Optimizer'}
             </button>
           </form>

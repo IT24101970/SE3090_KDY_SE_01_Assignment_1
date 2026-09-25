@@ -531,35 +531,6 @@ public class DoctorSchedulingService : IDoctorSchedulingService
             });
         }
 
-        // If no pending appointments exist in DB, provide helpful dev/test fallback records
-        if (list.Count == 0)
-        {
-            list.Add(new
-            {
-                id = 1001,
-                patientId = 1,
-                patientName = "John Doe",
-                reasonForVisit = "Severe chest tightness and shortness of breath",
-                status = "Pending",
-                appointmentDate = DateTime.UtcNow,
-                urgencyScore = 88,
-                urgencyLevel = "High",
-                recommendedSpecialty = "Cardiology"
-            });
-            list.Add(new
-            {
-                id = 1002,
-                patientId = 2,
-                patientName = "Jane Smith",
-                reasonForVisit = "Persistent migraines and blurred vision",
-                status = "Pending",
-                appointmentDate = DateTime.UtcNow,
-                urgencyScore = 65,
-                urgencyLevel = "Medium",
-                recommendedSpecialty = "Neurology"
-            });
-        }
-
         return list;
     }
 
