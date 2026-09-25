@@ -16,12 +16,6 @@ public class AppointmentsController : ControllerBase
         _appointmentService = appointmentService;
     }
 
-    // Convenience constructor for tests
-    public AppointmentsController(ApplicationDbContext context)
-        : this(new AppointmentService(context))
-    {
-    }
-
     // GET: api/appointments
     // Query params: ?patientId=1&doctorId=2&status=Pending&startDate=2026-09-01&upcomingOnly=true&page=1&pageSize=10
     [HttpGet]

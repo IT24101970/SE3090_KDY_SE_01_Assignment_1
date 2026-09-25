@@ -28,12 +28,6 @@ public class AgentWorkflowsController : ControllerBase
         _safetyAuditorService = safetyAuditorService;
     }
 
-    // Convenience constructor for unit tests
-    public AgentWorkflowsController(ApplicationDbContext context)
-        : this(new AgentWorkflowService(context))
-    {
-    }
-
     // GET: api/admin/workflows (optionally filter by ?status=PausedForApproval)
     [HttpGet]
     public async Task<IActionResult> GetWorkflows([FromQuery] WorkflowStatus? status = null)

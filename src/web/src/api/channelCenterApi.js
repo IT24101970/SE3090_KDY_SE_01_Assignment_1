@@ -62,6 +62,14 @@ export const workflowApi = {
 };
 
 export const authApi = {
+  adminLogin: (dto) => apiRequest('/api/auth/admin/login', {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  }),
+  adminRegister: (dto) => apiRequest('/api/auth/admin/register', {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  }),
   devLogin: (adminUserId) => apiRequest('/api/auth/dev-login', {
     method: 'POST',
     body: JSON.stringify(adminUserId),

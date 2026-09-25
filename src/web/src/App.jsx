@@ -9,6 +9,7 @@ function App() {
   const signOut = () => {
     localStorage.removeItem('channel-center-token');
     localStorage.removeItem('channel-center-user');
+    localStorage.removeItem('channel-center-role');
     setSignedIn(false);
   };
 

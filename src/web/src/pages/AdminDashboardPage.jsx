@@ -9,6 +9,7 @@ import DoctorSchedulingPage from './DoctorSchedulingPage';
 import PatientDirectoryTab from '../components/PatientManagement/PatientDirectoryTab';
 import AppointmentDirectoryTab from '../components/PatientManagement/AppointmentDirectoryTab';
 import IntakeAgentConsoleTab from '../components/PatientManagement/IntakeAgentConsoleTab';
+import AdminRegisterTab from '../components/AdminRegisterTab';
 
 export default function AdminDashboardPage({ onSignOut }) {
   const [activeArea, setActiveArea] = useState('patients');
@@ -29,7 +30,7 @@ export default function AdminDashboardPage({ onSignOut }) {
     <div className="console-shell">
       <Sidebar activeArea={activeArea} onNavigate={handleNavigate} onSignOut={onSignOut} />
       <main className="console-main">
-        {/* ΓöÇΓöÇ Student 1: Patient Management & Appointment Lifecycle ΓöÇΓöÇ */}
+        {/* Student 1: Patient Management & Appointment Lifecycle */}
         {activeArea === 'patients' && (
           <PatientDirectoryTab onLaunchIntake={handleLaunchIntake} />
         )}
@@ -38,13 +39,16 @@ export default function AdminDashboardPage({ onSignOut }) {
           <IntakeAgentConsoleTab initialPatient={intakePatient} />
         )}
 
-        {/* ΓöÇΓöÇ Student 4: Admin & Safety Workflows (unchanged) ΓöÇΓöÇ */}
+        {/* Student 4: Admin & Safety Workflows (unchanged) */}
         {activeArea === 'workflows' && <WorkflowReviewTab />}
         {activeArea === 'audit' && <AuditTrailTab />}
         {activeArea === 'analytics' && <SafetyAnalyticsTab />}
 
-        {/* ΓöÇΓöÇ Student 2: Doctor Scheduling (unchanged) ΓöÇΓöÇ */}
+        {/* Student 2: Doctor Scheduling (unchanged) */}
         {activeArea === 'scheduling' && <DoctorSchedulingPage />}
+
+        {/* Admin Management: Register Admin */}
+        {activeArea === 'admin-register' && <AdminRegisterTab />}
       </main>
     </div>
   );
