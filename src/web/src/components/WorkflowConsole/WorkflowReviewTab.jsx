@@ -1,11 +1,11 @@
-import {useEffect, useMemo, useState} from 'react';
-import {workflowApi} from '../../api/channelCenterApi';
+import { useEffect, useMemo, useState } from 'react';
+import { workflowApi } from '../../api/channelCenterApi';
 import WorkflowDetailPopup from './WorkflowDetailPopup';
 import ApprovalConfirmationPopup from './ApprovalConfirmationPopup';
-import {formatDate, statusClass, statusLabels} from './workflowConsoleUtils';
+import { formatDate, statusClass, statusLabels } from './workflowConsoleUtils';
 import './WorkflowConsole.css';
 
-function Metric({label, value, detail, tone}) {
+function Metric({ label, value, detail, tone }) {
     return (
         <div className="wc-stat-card">
             <div className="wc-stat-header">
@@ -49,7 +49,7 @@ export default function WorkflowReviewTab() {
         paused: workflows.filter((x) => x.status === 'PausedForApproval').length,
         running: workflows.filter((x) => x.status === 'Running').length,
         completed: workflows.filter((x) => x.status === 'Completed').length,
-        emergency: workflows.filter((x) => x.risk === 'Emergency').length
+        terminated: workflows.filter((x) => x.risk === 'Terminated').length
     };
 
     const applyDecision = async () => {
@@ -60,7 +60,7 @@ export default function WorkflowReviewTab() {
                 ...item,
                 status: updatedStatus
             } : item));
-            setSelected((item) => ({...item, status: updatedStatus}));
+            setSelected((item) => ({ ...item, status: updatedStatus }));
             setNotice(`Decision recorded: ${decision.toLowerCase()}.`);
             setDecision(null);
         } catch (requestError) {
@@ -101,7 +101,7 @@ export default function WorkflowReviewTab() {
                         <h2>Approval queue</h2>
                         <p>Structured agent work, never raw model reasoning.</p>
                     </div>
-                    <span className="wc-live-pill"><span className="wc-live-dot"/> LIVE</span>
+                    <span className="wc-live-pill"><span className="wc-live-dot" /> LIVE</span>
                 </div>
 
                 <div className="wc-toolbar">

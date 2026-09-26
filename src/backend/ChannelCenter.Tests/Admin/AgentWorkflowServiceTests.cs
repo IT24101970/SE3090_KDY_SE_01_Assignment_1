@@ -166,7 +166,7 @@ public class AgentWorkflowServiceTests
         Assert.IsType<OkObjectResult>(approveResult);
 
         var approved = await context.AgentWorkflows.FindAsync(dto.Id);
-        Assert.Equal(WorkflowStatus.Running, approved!.Status);
+        Assert.Equal(WorkflowStatus.Completed, approved!.Status);
 
         // Verify full audit trail exists
         var logs = context.AuditLogs.Where(a => a.WorkflowId == dto.Id).ToList();

@@ -130,7 +130,7 @@ public class AgentWorkflowControllerTests
     }
 
     [Fact]
-    public async Task ApproveWorkflow_ApprovedDecision_TransitionsToRunning_AndCreatesApprovalRecord()
+    public async Task ApproveWorkflow_ApprovedDecision_TransitionsToCompleted_AndCreatesApprovalRecord()
     {
         // Arrange
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
@@ -160,12 +160,12 @@ public class AgentWorkflowControllerTests
         var okResult = Assert.IsType<OkObjectResult>(result);
         var responseDto = Assert.IsType<WorkflowApprovalResponseDto>(okResult.Value);
         Assert.Equal(ApprovalDecision.Approved, responseDto.Decision);
-        Assert.Equal(WorkflowStatus.Running, responseDto.UpdatedWorkflowStatus);
+        Assert.Equal(WorkflowStatus.Completed, responseDto.UpdatedWorkflowStatus);
 
         // Verify DB updates
         var updated = await context.AgentWorkflows.FindAsync(workflow.Id);
         Assert.NotNull(updated);
-        Assert.Equal(WorkflowStatus.Running, updated.Status);
+        Assert.Equal(WorkflowStatus.Completed, updated.Status);
 
         var approval = context.AdminApprovals.FirstOrDefault(a => a.WorkflowId == workflow.Id);
         Assert.NotNull(approval);

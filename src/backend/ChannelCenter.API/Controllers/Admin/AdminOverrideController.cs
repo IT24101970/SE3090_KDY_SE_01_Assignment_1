@@ -20,7 +20,7 @@ public class AdminOverrideController : ControllerBase
     {
         _overrideService = overrideService;
     }
-    
+
     // POST: api/admin/overrides/workflows/{id}/cancel
     [HttpPost("workflows/{id}/cancel")]
     public async Task<IActionResult> CancelWorkflow(int id, [FromBody] OverrideCancelRequestDto request)

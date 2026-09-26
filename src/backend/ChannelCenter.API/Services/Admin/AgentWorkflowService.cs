@@ -160,7 +160,9 @@ public class AgentWorkflowService : IAgentWorkflowService
 
         if (request.Decision == ApprovalDecision.Approved)
         {
-            workflow.Status = WorkflowStatus.Running;
+            workflow.Status = WorkflowStatus.Completed;
+            workflow.CompletedAt = DateTime.UtcNow;
+            workflow.RequiresHumanApproval = false;
         }
         else if (request.Decision == ApprovalDecision.Rejected)
         {

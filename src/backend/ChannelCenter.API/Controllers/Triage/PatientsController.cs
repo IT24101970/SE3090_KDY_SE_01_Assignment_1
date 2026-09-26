@@ -15,7 +15,7 @@ public class PatientsController : ControllerBase
     {
         _patientService = patientService;
     }
-    
+
     // GET: api/patients
     // Supports query params: ?searchTerm=john&gender=Male&bloodGroup=O+&page=1&pageSize=10
     [HttpGet]

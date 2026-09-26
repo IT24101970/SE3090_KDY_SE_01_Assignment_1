@@ -18,7 +18,7 @@ class TriageProvider with ChangeNotifier {
   List<TriageAssessment> _history = [];
   List<TriageAssessment> get history => _history;
 
-  TriageProvider({this.baseUrl = 'http://localhost:5000/api'});
+  TriageProvider({this.baseUrl = 'http://localhost:5066/api'});
 
   Future<bool> submitIntakeAndProcessTriage({
     required int appointmentId,
