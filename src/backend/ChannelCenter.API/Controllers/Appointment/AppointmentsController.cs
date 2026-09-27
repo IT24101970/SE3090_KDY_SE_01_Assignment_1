@@ -3,7 +3,7 @@ using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Appointment;
 using ChannelCenter.API.Services.Appointment;
 
-namespace ChannelCenter.API.Controllers;
+namespace ChannelCenter.API.Controllers.Appointment;
 
 [ApiController]
 [Route("api/[controller]")]

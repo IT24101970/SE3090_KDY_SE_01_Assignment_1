@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using ChannelCenter.API.Controllers.Admin;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.Admin;
 using ChannelCenter.Tests;
 using Xunit;
 
@@ -24,7 +25,7 @@ public class AdminOverrideControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AdminOverrideController(context);
+        var controller = new AdminOverrideController(new AdminOverrideService(context));
         var request = new OverrideCancelRequestDto { Reason = "Emergency override by doctor" };
 
         // Act
@@ -58,7 +59,7 @@ public class AdminOverrideControllerTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new AdminOverrideController(context);
+        var controller = new AdminOverrideController(new AdminOverrideService(context));
         var request = new OverrideCancelRequestDto { Reason = "Test cancel" };
 
         // Act
@@ -81,7 +82,7 @@ public class AdminOverrideControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AdminOverrideController(context);
+        var controller = new AdminOverrideController(new AdminOverrideService(context));
         var request = new OverrideCancelRequestDto { Reason = "Cancel completed" };
 
         // Act
@@ -105,7 +106,7 @@ public class AdminOverrideControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AdminOverrideController(context);
+        var controller = new AdminOverrideController(new AdminOverrideService(context));
         var request = new OverrideCancelRequestDto { Reason = "Cancel again" };
 
         // Act
@@ -128,7 +129,7 @@ public class AdminOverrideControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AdminOverrideController(context);
+        var controller = new AdminOverrideController(new AdminOverrideService(context));
         var request = new OverrideReassignRequestDto
         {
             TargetDoctorId = 15,
@@ -167,7 +168,7 @@ public class AdminOverrideControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AdminOverrideController(context);
+        var controller = new AdminOverrideController(new AdminOverrideService(context));
         var request = new OverrideReassignRequestDto
         {
             TargetDoctorId = 7,
@@ -197,7 +198,7 @@ public class AdminOverrideControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AdminOverrideController(context);
+        var controller = new AdminOverrideController(new AdminOverrideService(context));
         var request = new OverrideReassignRequestDto
         {
             TargetDoctorId = 5,

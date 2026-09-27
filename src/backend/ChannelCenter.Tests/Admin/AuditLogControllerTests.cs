@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ChannelCenter.API.Controllers.Admin;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.Admin;
 using ChannelCenter.Tests;
 using Xunit;
 
@@ -27,7 +28,7 @@ public class AuditLogControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AuditLogController(context);
+        var controller = new AuditLogController(new AuditLogService(context));
         var result = await controller.GetAuditLogs(new AuditLogFilterDto { Page = 1, PageSize = 10 });
 
         var ok  = Assert.IsType<OkObjectResult>(result);
@@ -52,7 +53,7 @@ public class AuditLogControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AuditLogController(context);
+        var controller = new AuditLogController(new AuditLogService(context));
         var filter = new AuditLogFilterDto { AgentName = "Triage", Page = 1, PageSize = 10 };
         var result = await controller.GetAuditLogs(filter);
 
@@ -79,7 +80,7 @@ public class AuditLogControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AuditLogController(context);
+        var controller = new AuditLogController(new AuditLogService(context));
         var filter = new AuditLogFilterDto { WorkflowId = wf1.Id, Page = 1, PageSize = 10 };
         var result = await controller.GetAuditLogs(filter);
 
@@ -111,7 +112,7 @@ public class AuditLogControllerTests
         }
         await context.SaveChangesAsync();
 
-        var controller = new AuditLogController(context);
+        var controller = new AuditLogController(new AuditLogService(context));
 
         // Page 1 with page size 3 → should return 3 items
         var result1 = await controller.GetAuditLogs(new AuditLogFilterDto { Page = 1, PageSize = 3 });
@@ -139,7 +140,7 @@ public class AuditLogControllerTests
         context.AgentWorkflows.Add(wf);
         await context.SaveChangesAsync();
 
-        var controller = new AuditLogController(context);
+        var controller = new AuditLogController(new AuditLogService(context));
         var request = new CreateAuditLogDto
         {
             WorkflowId = wf.Id,

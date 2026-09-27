@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ChannelCenter.API.Controllers.Admin;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.Admin;
 using ChannelCenter.Tests;
 using Xunit;
 
@@ -15,7 +16,7 @@ public class AgentWorkflowServiceTests
     public async Task CreateWorkflow_ReturnsNewWorkflow_WithRunningStatus()
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         var request = new CreateWorkflowRequestDto
         {
@@ -41,7 +42,7 @@ public class AgentWorkflowServiceTests
     public async Task CreateWorkflow_WithHumanApprovalFlag_PersistsFlag()
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         var request = new CreateWorkflowRequestDto
         {
@@ -67,7 +68,7 @@ public class AgentWorkflowServiceTests
         context.AgentWorkflows.Add(wf);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new PauseWorkflowRequestDto
         {
             Reason              = "Emergency urgency level detected",
@@ -95,7 +96,7 @@ public class AgentWorkflowServiceTests
     public async Task PauseWorkflow_ReturnsNotFound_WhenWorkflowDoesNotExist()
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         var result = await controller.PauseWorkflow(999, new PauseWorkflowRequestDto
         {
@@ -115,7 +116,7 @@ public class AgentWorkflowServiceTests
         context.AgentWorkflows.Add(wf);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var result = await controller.PauseWorkflow(wf.Id, new PauseWorkflowRequestDto
         {
             Reason    = "Too late",
@@ -136,7 +137,7 @@ public class AgentWorkflowServiceTests
         context.Users.Add(adminUser);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Step 1: Start the workflow (simulates Intake Agent beginning)
         var createResult = await controller.CreateWorkflow(new CreateWorkflowRequestDto
@@ -187,7 +188,7 @@ public class AgentWorkflowServiceTests
         context.Users.Add(adminUser);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         var createResult = await controller.CreateWorkflow(new CreateWorkflowRequestDto
         {
@@ -227,7 +228,7 @@ public class AgentWorkflowServiceTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var result = await controller.RestartWorkflow(
             workflow.Id,
             new RestartWorkflowRequestDto { Reason = "Schedule corrected by admin" });

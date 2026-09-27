@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ChannelCenter.API.Controllers.Admin;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.Admin;
 using ChannelCenter.Tests;
 using Xunit;
 
@@ -29,7 +30,7 @@ public class AgentWorkflowControllerTests
         });
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Act
         var result = await controller.GetWorkflows();
@@ -55,7 +56,7 @@ public class AgentWorkflowControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Act
         var result = await controller.GetWorkflows(status: WorkflowStatus.PausedForApproval);
@@ -102,7 +103,7 @@ public class AgentWorkflowControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Act
         var result = await controller.GetWorkflowById(workflow.Id);
@@ -120,7 +121,7 @@ public class AgentWorkflowControllerTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Act
         var result = await controller.GetWorkflowById(999);
@@ -146,7 +147,7 @@ public class AgentWorkflowControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new WorkflowApprovalRequestDto
         {
             Decision = ApprovalDecision.Approved,
@@ -186,7 +187,7 @@ public class AgentWorkflowControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new WorkflowApprovalRequestDto
         {
             Decision = ApprovalDecision.Rejected
@@ -218,7 +219,7 @@ public class AgentWorkflowControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new WorkflowApprovalRequestDto
         {
             Decision = ApprovalDecision.Revised
@@ -246,7 +247,7 @@ public class AgentWorkflowControllerTests
         context.AgentWorkflows.Add(completedWorkflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new WorkflowApprovalRequestDto { Decision = ApprovalDecision.Approved };
 
         // Act

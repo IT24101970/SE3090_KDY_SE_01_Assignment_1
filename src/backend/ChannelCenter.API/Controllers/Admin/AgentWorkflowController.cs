@@ -28,11 +28,6 @@ public class AgentWorkflowsController : ControllerBase
         _safetyAuditorService = safetyAuditorService;
     }
 
-    public AgentWorkflowsController(ApplicationDbContext workflowService)
-    {
-        throw new NotImplementedException();
-    }
-
     // GET: api/admin/workflows (optionally filter by ?status=PausedForApproval)
     [HttpGet]
     public async Task<IActionResult> GetWorkflows([FromQuery] WorkflowStatus? status = null)

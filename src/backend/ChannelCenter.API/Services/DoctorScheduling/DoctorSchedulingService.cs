@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.DoctorScheduling;
 using ChannelCenter.API.Models;
@@ -8,10 +9,12 @@ namespace ChannelCenter.API.Services.DoctorScheduling;
 public class DoctorSchedulingService : IDoctorSchedulingService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IHttpClientFactory? _httpClientFactory;
 
-    public DoctorSchedulingService(ApplicationDbContext context)
+    public DoctorSchedulingService(ApplicationDbContext context, IHttpClientFactory? httpClientFactory = null)
     {
         _context = context;
+        _httpClientFactory = httpClientFactory;
     }
 
     #region Doctor Operations
@@ -542,10 +545,21 @@ public class DoctorSchedulingService : IDoctorSchedulingService
             .FirstOrDefaultAsync(t => t.AppointmentId == appointmentId);
     }
 
-    public async Task<object> OptimizeScheduleWithAiAsync(object inputDto)
-
+    private HttpClient CreateAiClient()
     {
-        using var client = new HttpClient { BaseAddress = new Uri("http://localhost:8000") };
+        var client = _httpClientFactory != null
+            ? _httpClientFactory.CreateClient("AiService")
+            : new HttpClient();
+        if (client.BaseAddress == null)
+        {
+            client.BaseAddress = new Uri("http://localhost:8000");
+        }
+        return client;
+    }
+
+    public async Task<object> OptimizeScheduleWithAiAsync(object inputDto)
+    {
+        using var client = CreateAiClient();
         var response = await client.PostAsJsonAsync("/api/agent/doctor-scheduling/optimize", inputDto);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<object>();
@@ -554,7 +568,7 @@ public class DoctorSchedulingService : IDoctorSchedulingService
 
     public async Task<DoctorScheduleDto> ApproveAiScheduleWorkflowAsync(string workflowId)
     {
-        using var client = new HttpClient { BaseAddress = new Uri("http://localhost:8000") };
+        using var client = CreateAiClient();
         var response = await client.PostAsync($"/api/agent/doctor-scheduling/workflows/{workflowId}/approve", null);
         response.EnsureSuccessStatusCode();
 

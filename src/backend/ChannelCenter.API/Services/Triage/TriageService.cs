@@ -1,3 +1,5 @@
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Triage;
 using ChannelCenter.API.Models;
@@ -8,10 +10,12 @@ namespace ChannelCenter.API.Services.Triage;
 public class TriageService : ITriageService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IHttpClientFactory? _httpClientFactory;
 
-    public TriageService(ApplicationDbContext context)
+    public TriageService(ApplicationDbContext context, IHttpClientFactory? httpClientFactory = null)
     {
         _context = context;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<QuestionnaireResponseDto> SubmitQuestionnaireAsync(CreateQuestionnaireDto dto)
@@ -52,47 +56,101 @@ public class TriageService : ITriageService
 
     public async Task<TriageAssessmentDto> ProcessTriageAsync(ProcessTriageDto dto)
     {
-        // 1. Calculate urgency score & red flag detection
-        int maxSeverity = dto.SymptomList.Any() ? dto.SymptomList.Max(s => s.SeverityRating ?? 1) : 1;
-        string combinedSymptoms = ((dto.RawSymptoms ?? "") + " " + string.Join(" ", dto.SymptomList.Select(s => s.SymptomKeyword))).ToLowerInvariant();
-
-        bool hasEmergencyRedFlag = combinedSymptoms.Contains("chest pain") || combinedSymptoms.Contains("shortness of breath") || 
-                                   combinedSymptoms.Contains("stroke") || combinedSymptoms.Contains("unconscious") || combinedSymptoms.Contains("severe bleeding");
-
-        int calculatedScore = hasEmergencyRedFlag ? Math.Max(92, maxSeverity * 10) : maxSeverity * 10;
-
-        UrgencyLevel level = calculatedScore switch
-        {
-            >= 80 => UrgencyLevel.Emergency,
-            >= 60 => UrgencyLevel.High,
-            >= 30 => UrgencyLevel.Medium,
-            _ => UrgencyLevel.Low
-        };
-
-        // 2. Specialty Matching (direct string recommended specialty)
+        int calculatedScore = 0;
+        UrgencyLevel level = UrgencyLevel.Low;
         string matchedSpecialty = "General Medicine";
-        if (combinedSymptoms.Contains("chest pain") || combinedSymptoms.Contains("heart") || combinedSymptoms.Contains("palpitation") || combinedSymptoms.Contains("cardiac"))
+        string reasoningTrace = string.Empty;
+        bool aiSuccess = false;
+
+        // Try Python AI Agent Service first if available
+        if (_httpClientFactory != null)
         {
-            matchedSpecialty = "Cardiology";
-        }
-        else if (combinedSymptoms.Contains("rash") || combinedSymptoms.Contains("skin") || combinedSymptoms.Contains("itch") || combinedSymptoms.Contains("acne") || combinedSymptoms.Contains("lesion"))
-        {
-            matchedSpecialty = "Dermatology";
-        }
-        else if (combinedSymptoms.Contains("headache") || combinedSymptoms.Contains("numbness") || combinedSymptoms.Contains("dizziness") || combinedSymptoms.Contains("seizure") || combinedSymptoms.Contains("stroke") || combinedSymptoms.Contains("migraine"))
-        {
-            matchedSpecialty = "Neurology";
-        }
-        else if (combinedSymptoms.Contains("joint") || combinedSymptoms.Contains("knee") || combinedSymptoms.Contains("bone") || combinedSymptoms.Contains("fracture") || combinedSymptoms.Contains("back pain") || combinedSymptoms.Contains("sprain"))
-        {
-            matchedSpecialty = "Orthopedics";
-        }
-        else if (combinedSymptoms.Contains("stomach") || combinedSymptoms.Contains("nausea") || combinedSymptoms.Contains("vomiting") || combinedSymptoms.Contains("acid") || combinedSymptoms.Contains("reflux") || combinedSymptoms.Contains("diarrhea"))
-        {
-            matchedSpecialty = "Gastroenterology";
+            try
+            {
+                var client = _httpClientFactory.CreateClient("AiService");
+                var payload = new
+                {
+                    appointment_id = dto.AppointmentId,
+                    raw_symptoms = dto.RawSymptoms ?? "",
+                    symptom_list = dto.SymptomList.Select(s => new
+                    {
+                        symptom_keyword = s.SymptomKeyword,
+                        severity_rating = s.SeverityRating ?? 1,
+                        duration_in_days = s.DurationInDays
+                    }).ToList()
+                };
+
+                var requestMsg = new HttpRequestMessage(HttpMethod.Post, "/internal/v1/triage/assess")
+                {
+                    Content = JsonContent.Create(payload)
+                };
+                requestMsg.Headers.Add("X-Internal-Service-Key", "ChannelCenterInternalKey2026_MustBeSecure!");
+
+                var response = await client.SendAsync(requestMsg);
+                if (response.IsSuccessStatusCode)
+                {
+                    var aiResult = await response.Content.ReadFromJsonAsync<TriageAiResultDto>();
+                    if (aiResult != null)
+                    {
+                        calculatedScore = aiResult.UrgencyScore;
+                        level = Enum.TryParse<UrgencyLevel>(aiResult.UrgencyLevel, true, out var parsedLevel)
+                            ? parsedLevel
+                            : UrgencyLevel.Medium;
+                        matchedSpecialty = aiResult.RecommendedSpecialty;
+                        reasoningTrace = aiResult.ReasoningTrace;
+                        aiSuccess = true;
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback to local rule engine if AI service is unavailable
+            }
         }
 
-        string reasoningTrace = $"[Symptom Triage Agent] Parsed {dto.SymptomList.Count} symptom entries for raw symptoms: '{dto.RawSymptoms}'. Highest severity score: {maxSeverity}/10. Emergency red flags: {(hasEmergencyRedFlag ? "Detected" : "None")}. Matched specialty: {matchedSpecialty}. Assessed urgency level: {level} (Score: {calculatedScore}/100).";
+        if (!aiSuccess)
+        {
+            // 1. Calculate urgency score & red flag detection
+            int maxSeverity = dto.SymptomList.Any() ? dto.SymptomList.Max(s => s.SeverityRating ?? 1) : 1;
+            string combinedSymptoms = ((dto.RawSymptoms ?? "") + " " + string.Join(" ", dto.SymptomList.Select(s => s.SymptomKeyword))).ToLowerInvariant();
+
+            bool hasEmergencyRedFlag = combinedSymptoms.Contains("chest pain") || combinedSymptoms.Contains("shortness of breath") || 
+                                       combinedSymptoms.Contains("stroke") || combinedSymptoms.Contains("unconscious") || combinedSymptoms.Contains("severe bleeding");
+
+            calculatedScore = hasEmergencyRedFlag ? Math.Max(92, maxSeverity * 10) : maxSeverity * 10;
+
+            level = calculatedScore switch
+            {
+                >= 80 => UrgencyLevel.Emergency,
+                >= 60 => UrgencyLevel.High,
+                >= 30 => UrgencyLevel.Medium,
+                _ => UrgencyLevel.Low
+            };
+
+            // 2. Specialty Matching (direct string recommended specialty)
+            if (combinedSymptoms.Contains("chest pain") || combinedSymptoms.Contains("heart") || combinedSymptoms.Contains("palpitation") || combinedSymptoms.Contains("cardiac"))
+            {
+                matchedSpecialty = "Cardiology";
+            }
+            else if (combinedSymptoms.Contains("rash") || combinedSymptoms.Contains("skin") || combinedSymptoms.Contains("itch") || combinedSymptoms.Contains("acne") || combinedSymptoms.Contains("lesion"))
+            {
+                matchedSpecialty = "Dermatology";
+            }
+            else if (combinedSymptoms.Contains("headache") || combinedSymptoms.Contains("numbness") || combinedSymptoms.Contains("dizziness") || combinedSymptoms.Contains("seizure") || combinedSymptoms.Contains("stroke") || combinedSymptoms.Contains("migraine"))
+            {
+                matchedSpecialty = "Neurology";
+            }
+            else if (combinedSymptoms.Contains("joint") || combinedSymptoms.Contains("knee") || combinedSymptoms.Contains("bone") || combinedSymptoms.Contains("fracture") || combinedSymptoms.Contains("back pain") || combinedSymptoms.Contains("sprain"))
+            {
+                matchedSpecialty = "Orthopedics";
+            }
+            else if (combinedSymptoms.Contains("stomach") || combinedSymptoms.Contains("nausea") || combinedSymptoms.Contains("vomiting") || combinedSymptoms.Contains("acid") || combinedSymptoms.Contains("reflux") || combinedSymptoms.Contains("diarrhea"))
+            {
+                matchedSpecialty = "Gastroenterology";
+            }
+
+            reasoningTrace = $"[Symptom Triage Agent] Parsed {dto.SymptomList.Count} symptom entries for raw symptoms: '{dto.RawSymptoms}'. Highest severity score: {maxSeverity}/10. Emergency red flags: {(hasEmergencyRedFlag ? "Detected" : "None")}. Matched specialty: {matchedSpecialty}. Assessed urgency level: {level} (Score: {calculatedScore}/100).";
+        }
 
         // 3. Create TriageAssessment Record with AppointmentId
         var assessment = new TriageAssessment
@@ -286,4 +344,22 @@ public class TriageService : ITriageService
 
         return Task.FromResult<IEnumerable<string>>(specialties);
     }
+}
+
+internal class TriageAiResultDto
+{
+    [JsonPropertyName("urgency_score")]
+    public int UrgencyScore { get; set; }
+
+    [JsonPropertyName("urgency_level")]
+    public string UrgencyLevel { get; set; } = "Low";
+
+    [JsonPropertyName("recommended_specialty")]
+    public string RecommendedSpecialty { get; set; } = "General Medicine";
+
+    [JsonPropertyName("reasoning_trace")]
+    public string ReasoningTrace { get; set; } = string.Empty;
+
+    [JsonPropertyName("matched_condition")]
+    public string MatchedCondition { get; set; } = string.Empty;
 }
