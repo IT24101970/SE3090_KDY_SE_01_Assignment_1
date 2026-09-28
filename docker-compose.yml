@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL Relational Database ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: channel_center_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: channel_center_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d channel_center_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Component 4 Agentic AI Subsystem (Python FastAPI) ───────────────────────
+  ai-service:
+    build:
+      context: ./src/ai-service
+      dockerfile: Dockerfile
+    container_name: channel_center_ai_service
+    restart: always
+    ports:
+      - "8001:8001"
+    environment:
+      - INTERNAL_SERVICE_KEY=local-development-secret
+      - PORT=8001
+
+  # ── ASP.NET Core RESTful API Backend ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./src/backend/ChannelCenter.API
+      dockerfile: Dockerfile
+    container_name: channel_center_api
+    restart: always
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=channel_center_db;Username=postgres;Password=postgres
+      - SafetyAuditor__BaseUrl=http://ai-service:8001
+      - SafetyAuditor__InternalServiceKey=local-development-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+
+volumes:
+  postgres_data:

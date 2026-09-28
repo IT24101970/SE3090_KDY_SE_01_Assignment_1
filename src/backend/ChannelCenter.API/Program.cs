@@ -118,10 +118,11 @@ builder.Services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<ISafetyAuditorReadService, SafetyAuditorReadService>();
 
-// Internal Safety Auditor calls use a separate shared secret, never a browser JWT.
+// Internal Safety Auditor & AI Service calls use a separate shared secret
+var aiBaseUrl = builder.Configuration["SafetyAuditor:BaseUrl"] ?? "http://127.0.0.1:8001";
 builder.Services.AddHttpClient("AiService", client =>
 {
-    client.BaseAddress = new Uri("http://localhost:8000");
+    client.BaseAddress = new Uri(aiBaseUrl);
 });
 builder.Services.Configure<SafetyAuditorOptions>(
     builder.Configuration.GetSection(SafetyAuditorOptions.SectionName));
