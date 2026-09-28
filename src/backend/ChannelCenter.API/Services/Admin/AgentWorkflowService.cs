@@ -142,7 +142,7 @@ public class AgentWorkflowService : IAgentWorkflowService
             return (false, $"Workflow with ID {id} not found.", null);
         }
 
-        if (workflow.Status is WorkflowStatus.Completed or WorkflowStatus.Terminated or WorkflowStatus.SafeFailed)
+        if (workflow.Status is WorkflowStatus.Completed or WorkflowStatus.Terminated)
         {
             return (false, $"Cannot make approval decisions on a workflow that is already {workflow.Status}.", null);
         }

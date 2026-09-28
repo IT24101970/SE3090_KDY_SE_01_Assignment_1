@@ -888,3 +888,338 @@
     max-width: 100%;
   }
 }
+
+/* Centered Detail Modal Override */
+.wc-modal-card.wc-detail-modal {
+  width: min(840px, calc(100vw - 32px));
+  max-height: 88vh;
+  margin: auto;
+}
+
+/* Audit Log & Payload Formatting */
+.wc-audit-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(18, 33, 58, 0.04);
+}
+
+.wc-audit-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(18, 33, 58, 0.08);
+}
+
+.wc-audit-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wc-audit-agent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.wc-audit-agent-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  font-size: 14px;
+}
+
+.wc-audit-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wc-audit-tool-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: #edf4ff;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #d0e1fd;
+}
+
+.wc-audit-wf-link {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: #f8fafc;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+
+/* Structured Payload Viewer */
+.wc-payload-container {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 8px;
+}
+
+.wc-payload-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.wc-payload-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.wc-payload-toggle-btn {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--blue);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wc-payload-toggle-btn:hover {
+  background: #edf4ff;
+  border-color: #bcdcff;
+}
+
+.wc-payload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.wc-payload-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wc-payload-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.wc-payload-val {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.wc-payload-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wc-payload-pill.danger {
+  background: #fff0f0;
+  color: #dc2626;
+  border: 1px solid #fecdd3;
+}
+
+.wc-payload-pill.warning {
+  background: #fff8e8;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.wc-payload-pill.success {
+  background: #e6f7f3;
+  color: #0d806a;
+  border: 1px solid #c2ece2;
+}
+
+.wc-payload-pill.neutral {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.wc-payload-json-block {
+  background: #0f172a;
+  color: #38bdf8;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.wc-payload-raw-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.wc-payload-empty {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.wc-payload-array {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wc-payload-array-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.wc-payload-item-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  padding-top: 2px;
+}
+
+/* Unordered List Structured Payload Styles */
+.wc-payload-ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wc-payload-li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.wc-payload-li:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.wc-payload-bullet {
+  color: var(--blue);
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.wc-payload-item-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  min-width: 130px;
+  flex-shrink: 0;
+}
+
+.wc-payload-item-val {
+  font-size: 13px;
+  color: var(--muted);
+  flex: 1;
+  word-break: break-word;
+}
+
+/* Dropdown Accordion Controls for Audit Trail Tab */
+.wc-payload-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.wc-payload-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wc-payload-dropdown-btn:hover {
+  background: #edf4ff;
+  border-color: var(--blue-soft);
+  color: var(--blue);
+}
+
+.wc-payload-dropdown-icon {
+  font-size: 10px;
+  color: var(--blue);
+}
+
+.wc-payload-dropdown-title {
+  font-weight: 700;
+}
+
+.wc-payload-count-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+

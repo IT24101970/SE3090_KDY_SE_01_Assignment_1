@@ -45,11 +45,13 @@ export default function WorkflowReviewTab() {
 
     const filtered = useMemo(() => workflows.filter((item) => (filter === 'All' || statusLabels[item.status] === filter) && `${item.id} ${item.objective} ${item.agent}`.toLowerCase().includes(search.toLowerCase())), [filter, search, workflows]);
 
+    const isReviewable = (s) => s === 'PausedForApproval' || s === 'SafeFailed' || s === 1 || s === 4;
+
     const counts = {
-        paused: workflows.filter((x) => x.status === 'PausedForApproval').length,
-        running: workflows.filter((x) => x.status === 'Running').length,
-        completed: workflows.filter((x) => x.status === 'Completed').length,
-        terminated: workflows.filter((x) => x.risk === 'Terminated').length
+        paused: workflows.filter((x) => isReviewable(x.status)).length,
+        running: workflows.filter((x) => x.status === 'Running' || x.status === 0).length,
+        completed: workflows.filter((x) => x.status === 'Completed' || x.status === 2).length,
+        terminated: workflows.filter((x) => x.status === 'Terminated' || x.status === 3).length
     };
 
     const applyDecision = async () => {

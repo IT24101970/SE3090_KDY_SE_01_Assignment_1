@@ -1,12 +1,14 @@
 import {formatDate, statusClass, statusLabels} from './workflowConsoleUtils';
+import StructuredPayloadViewer from './StructuredPayloadViewer';
 import './WorkflowConsole.css';
 
 export default function WorkflowDetailPopup({workflow, onClose, onDecision}) {
     const logs = workflow.auditLogs || [];
+    const canReview = workflow.status === 'PausedForApproval' || workflow.status === 'SafeFailed' || workflow.status === 1 || workflow.status === 4;
 
     return (
         <div className="wc-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <aside className="wc-modal-card wc-drawer" aria-label="Workflow details">
+            <div className="wc-modal-card wc-detail-modal" role="dialog" aria-modal="true" aria-label="Workflow details">
                 <div className="wc-modal-header">
                     <div>
                         <span className={`wc-badge ${statusClass(workflow.status)}`}>
@@ -19,12 +21,12 @@ export default function WorkflowDetailPopup({workflow, onClose, onDecision}) {
                 </div>
 
                 <div className="wc-modal-body">
-                    {workflow.status === 'PausedForApproval' && (
+                    {canReview && (
                         <div className="wc-alert warning">
                             <div>
                                 <strong>Human review required</strong>
                                 <div style={{ marginTop: '4px' }}>
-                                    {workflow.pauseReason || 'The Safety Auditor paused this workflow for an accountable admin decision.'}
+                                    {workflow.pauseReason || workflow.errorMessage || 'This workflow requires an accountable admin decision to confirm or override.'}
                                 </div>
                             </div>
                         </div>
@@ -47,7 +49,7 @@ export default function WorkflowDetailPopup({workflow, onClose, onDecision}) {
                             </div>
                             <div>
                                 <span className="wc-label">Approval gate</span>
-                                <div><strong>{workflow.requiresHumanApproval ? 'Required' : 'Not required'}</strong></div>
+                                <div><strong>{workflow.requiresHumanApproval || canReview ? 'Required' : 'Not required'}</strong></div>
                             </div>
                             <div>
                                 <span className="wc-label">Source</span>
@@ -78,7 +80,7 @@ export default function WorkflowDetailPopup({workflow, onClose, onDecision}) {
                                                 <time>{formatDate(log.createdAt)}</time>
                                             </div>
                                             <strong className="wc-tool-name">{log.toolCalled}</strong>
-                                            <p>{log.toolOutput}</p>
+                                            <StructuredPayloadViewer payload={log.toolOutput} title={log.toolCalled} />
                                         </div>
                                     </div>
                                 ))}
@@ -87,7 +89,7 @@ export default function WorkflowDetailPopup({workflow, onClose, onDecision}) {
                     </div>
                 </div>
 
-                {workflow.status === 'PausedForApproval' && (
+                {canReview && (
                     <div className="wc-modal-footer">
                         <button className="wc-btn warning-border" onClick={() => onDecision('Revised')}>
                             Request revision
@@ -100,7 +102,8 @@ export default function WorkflowDetailPopup({workflow, onClose, onDecision}) {
                         </button>
                     </div>
                 )}
-            </aside>
+            </div>
         </div>
     );
 }
+

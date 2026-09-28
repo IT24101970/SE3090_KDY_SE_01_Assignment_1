@@ -20,7 +20,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? "Host=localhost;Database=channel_center_db;Username=postgres;Password=postgres";
 
 // ── Core MVC & Routing ───────────────────────────────────────────────────────
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
