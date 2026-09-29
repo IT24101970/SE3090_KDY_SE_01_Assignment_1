@@ -258,72 +258,82 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
 
                 const SizedBox(height: 24),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Patient Attendance Queue',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
-                    ),
-                    Text(
-                      '${_patients.where((p) => p.attendanceStatus == AttendanceStatus.present).length} Present / ${_patients.length} Total',
-                      style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                if (_patients.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Center(
-                        child: Text(
-                          'No patient appointments in database for this doctor.',
-                          style: TextStyle(color: Colors.grey.shade600),
+                Builder(
+                  builder: (context) {
+                    final doctorPatients = _patients.where((p) => p.doctorId == 0 || p.doctorId == _profile.id).toList();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Patient Attendance Queue',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+                            ),
+                            Text(
+                              '${doctorPatients.where((p) => p.attendanceStatus == AttendanceStatus.present).length} Present / ${doctorPatients.length} Total',
+                              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                  )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _patients.length,
-                    itemBuilder: (context, index) {
-                      final patient = _patients[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: ListTile(
-                          title: Text(
-                            'Queue #${patient.queueNumber}: ${patient.patientName}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text('Appointment ID: ${patient.appointmentId}'),
-                          trailing: ElevatedButton(
-                            onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ConsultationAttendanceScreen(patient: patient),
+                        const SizedBox(height: 12),
+
+                        if (doctorPatients.isEmpty)
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Center(
+                                child: Text(
+                                  'No patient appointments in database for ${_profile.name}.',
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: doctorPatients.length,
+                            itemBuilder: (context, index) {
+                              final patient = doctorPatients[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                child: ListTile(
+                                  title: Text(
+                                    'Queue #${patient.queueNumber}: ${patient.patientName}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Text('Appointment ID: ${patient.appointmentId}'),
+                                  trailing: ElevatedButton(
+                                    onPressed: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ConsultationAttendanceScreen(patient: patient),
+                                        ),
+                                      );
+                                      _loadDashboardDataFromDb();
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: patient.attendanceStatus == AttendanceStatus.present
+                                          ? Colors.green
+                                          : (patient.attendanceStatus == AttendanceStatus.noShow
+                                              ? Colors.red
+                                              : Colors.indigo),
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: Text(patient.attendanceStatus.name.toUpperCase()),
+                                  ),
                                 ),
                               );
-                              _loadDashboardDataFromDb();
                             },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: patient.attendanceStatus == AttendanceStatus.present
-                                  ? Colors.green
-                                  : (patient.attendanceStatus == AttendanceStatus.noShow
-                                      ? Colors.red
-                                      : Colors.indigo),
-                              foregroundColor: Colors.white,
-                            ),
-                            child: Text(patient.attendanceStatus.name.toUpperCase()),
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ],
           ),

@@ -108,6 +108,7 @@ class DoctorScheduleModel {
 
 class PatientQueueItem {
   final int appointmentId;
+  final int doctorId;
   final String patientName;
   final int queueNumber;
   AttendanceStatus attendanceStatus;
@@ -116,6 +117,7 @@ class PatientQueueItem {
 
   PatientQueueItem({
     required this.appointmentId,
+    this.doctorId = 0,
     required this.patientName,
     required this.queueNumber,
     this.attendanceStatus = AttendanceStatus.pending,
@@ -126,6 +128,7 @@ class PatientQueueItem {
   factory PatientQueueItem.fromJson(Map<String, dynamic> json, int queueIndex) {
     return PatientQueueItem(
       appointmentId: json['id'] ?? json['appointmentId'] ?? 0,
+      doctorId: json['doctorId'] ?? 0,
       patientName: json['patientName'] ?? 'Patient',
       queueNumber: queueIndex,
       attendanceStatus: parseAttendanceStatus(json['attendanceStatus'] ?? json['status']),

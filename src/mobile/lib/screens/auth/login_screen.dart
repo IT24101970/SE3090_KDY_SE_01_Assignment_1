@@ -4,7 +4,6 @@ import '../../models/doctor_scheduling_models.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/doctor_scheduling_service.dart';
 import '../doctor_scheduling/doctor_dashboard_screen.dart';
-import 'patient_register_screen.dart';
 
 enum LoginRole { doctor, patient, admin }
 
@@ -298,41 +297,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                       ),
-                      if (_selectedRole == LoginRole.patient) ...[
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Don't have a patient account? ",
-                              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const PatientRegisterScreen(),
-                                  ),
-                                );
-                              },
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text(
-                                'Register Now',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.teal,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
                   ),
                 ),
