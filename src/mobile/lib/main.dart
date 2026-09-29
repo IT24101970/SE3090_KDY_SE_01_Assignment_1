@@ -3,16 +3,15 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/workflow_provider.dart';
 import 'providers/triage_provider.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/home_navigation_screen.dart';
+import 'screens/doctor_scheduling/doctor_login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const Component4MobileApp());
+  runApp(const DoctorSchedulingMobileApp());
 }
 
-class Component4MobileApp extends StatelessWidget {
-  const Component4MobileApp({Key? key}) : super(key: key);
+class DoctorSchedulingMobileApp extends StatelessWidget {
+  const DoctorSchedulingMobileApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +28,7 @@ class Component4MobileApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'ChannelCenter Healthcare Emergency & Consultation',
+        title: 'ChannelCenter Doctor Portal',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
@@ -44,37 +43,11 @@ class Component4MobileApp extends StatelessWidget {
           cardTheme: CardThemeData(
             elevation: 2,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
         ),
-        home: Consumer<AuthProvider>(
-          builder: (context, auth, _) {
-            if (auth.isLoading) {
-              return const Scaffold(
-                body: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text(
-                        'Initializing ChannelCenter Portal...',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            if (!auth.isAuthenticated) {
-              return const LoginScreen();
-            }
-
-            return const HomeNavigationScreen();
-          },
-        ),
+        home: const DoctorLoginScreen(),
       ),
     );
   }

@@ -293,37 +293,47 @@ export default function DoctorSchedulesTab() {
         <div style={{ padding: 20, textAlign: 'center', color: '#627d98' }}>Loading schedules...</div>
       ) : (
         <div className="ds-grid">
-          {schedules.map((s) => (
-            <div key={s.id} className="ds-card">
-              <div>
-                <div className="ds-card-header">
-                  <h4 className="ds-card-title">{s.doctorName}</h4>
-                  <span className="ds-badge ds-badge-approved">{s.specialtyName}</span>
+          {schedules.map((s) => {
+            const isExpired = s.isExpired !== undefined ? s.isExpired : (new Date(s.endTime) < new Date());
+            return (
+              <div key={s.id} className="ds-card" style={{ opacity: isExpired ? 0.75 : 1, borderLeft: isExpired ? '4px solid #94a3b8' : '4px solid #10b981' }}>
+                <div>
+                  <div className="ds-card-header">
+                    <h4 className="ds-card-title">{s.doctorName}</h4>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span className="ds-badge ds-badge-approved">{s.specialtyName}</span>
+                      {isExpired ? (
+                        <span className="ds-badge" style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}>Expired</span>
+                      ) : (
+                        <span className="ds-badge" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>Active</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 8 }}>
+                    <strong>📍 Consultation Room:</strong> {s.roomName} ({s.floor})
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
+                    <strong>⏰ Start:</strong> {new Date(s.startTime).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
+                    <strong>⏳ End:</strong> {new Date(s.endTime).toLocaleString()}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 8 }}>
-                  <strong>📍 Consultation Room:</strong> {s.roomName} ({s.floor})
-                </div>
-                <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
-                  <strong>⏰ Start:</strong> {new Date(s.startTime).toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
-                  <strong>⏳ End:</strong> {new Date(s.endTime).toLocaleString()}
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--ds-navy-primary)' }}>
+                    👥 Capacity: {s.maxPatients} Patients
+                  </span>
+                  <button
+                    className="ds-btn ds-btn-danger"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                    onClick={() => handleDeleteSchedule(s.id)}
+                  >
+                    Remove Session
+                  </button>
                 </div>
               </div>
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--ds-navy-primary)' }}>
-                  👥 Capacity: {s.maxPatients} Patients
-                </span>
-                <button
-                  className="ds-btn ds-btn-danger"
-                  style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                  onClick={() => handleDeleteSchedule(s.id)}
-                >
-                  Remove Session
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

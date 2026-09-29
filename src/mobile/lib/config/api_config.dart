@@ -27,6 +27,13 @@ class ApiConfig {
   static String get adminWorkflowsUrl => '$baseUrl/admin/workflows';
   static String adminWorkflowDetailUrl(int id) => '$baseUrl/admin/workflows/$id';
 
+  // Student 2 Doctor Scheduling endpoints
+  static String get doctorsUrl => '$baseUrl/doctor-scheduling/doctors';
+  static String get doctorSchedulesUrl => '$baseUrl/doctor-scheduling/doctorschedules';
+  static String get doctorLeavesUrl => '$baseUrl/doctor-scheduling/doctorleaves';
+  static String get consultationsUrl => '$baseUrl/doctor-scheduling/consultations';
+  static String get appointmentsUrl => '$baseUrl/appointments';
+
   // Request timeout
   static const Duration timeoutDuration = Duration(seconds: 10);
 }

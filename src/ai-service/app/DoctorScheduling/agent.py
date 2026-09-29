@@ -104,15 +104,28 @@ class ScheduleOptimizationAgent:
         duration_mins = input_data.estimated_duration_minutes or 120
         rec_end = input_data.desired_window_end if input_data.desired_window_end else rec_start + timedelta(minutes=duration_mins)
 
-        # Schedule Check: Search for active Doctor Schedules in DB matching specialty
+        # Schedule Check: Search for active, unexpired Doctor Schedules in DB matching specialty
         existing_scheds = spec_tool_res.get("existing_schedules", [])
         spec_k = specialty.lower().strip()
+        now_utc = datetime.utcnow()
 
         matching_scheds = []
         for s in existing_scheds:
             s_spec = (s.get("specialtyName") or "").lower()
             s_doc_id = s.get("doctorId")
-            if spec_k in s_spec or s_spec in spec_k or s_doc_id == doc_id:
+
+            # Exclude expired schedules whose end time has already passed
+            is_expired = False
+            try:
+                end_str = s.get("endTime", "")
+                if end_str:
+                    end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00")).replace(tzinfo=None)
+                    if end_dt <= now_utc:
+                        is_expired = True
+            except Exception:
+                pass
+
+            if not is_expired and (spec_k in s_spec or s_spec in spec_k or s_doc_id == doc_id):
                 matching_scheds.append(s)
 
         matched_sched = None
@@ -122,8 +135,6 @@ class ScheduleOptimizationAgent:
             except Exception:
                 pass
             matched_sched = matching_scheds[0]
-        elif len(existing_scheds) > 0:
-            matched_sched = existing_scheds[0]
 
         has_active_schedule = matched_sched is not None
 
