@@ -134,173 +134,166 @@ class _LoginScreenState extends State<LoginScreen> {
     final isBusy = authProvider.isLoading || _isLoadingDoctor;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Header Logo & Title
-                      Icon(
-                        Icons.medical_services_rounded,
-                        size: 56,
-                        color: _selectedRole == LoginRole.doctor
-                            ? Colors.indigo
-                            : (_selectedRole == LoginRole.admin ? Colors.deepOrange : Colors.teal),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'ChannelCenter Hospital',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.indigo,
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Unified Authentication Portal',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Role Switcher
-                      SegmentedButton<LoginRole>(
-                        segments: const [
-                          ButtonSegment<LoginRole>(
-                            value: LoginRole.doctor,
-                            label: Text('Doctor'),
-                            icon: Icon(Icons.medical_services),
-                          ),
-                          ButtonSegment<LoginRole>(
-                            value: LoginRole.patient,
-                            label: Text('Patient'),
-                            icon: Icon(Icons.person),
-                          ),
-                          ButtonSegment<LoginRole>(
-                            value: LoginRole.admin,
-                            label: Text('Admin'),
-                            icon: Icon(Icons.admin_panel_settings),
-                          ),
-                        ],
-                        selected: {_selectedRole},
-                        onSelectionChanged: (Set<LoginRole> selection) {
-                          _applyRoleDefaults(selection.first);
-                        },
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Error message banner
-                      if (authProvider.errorMessage != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  authProvider.errorMessage!,
-                                  style: const TextStyle(color: Colors.red, fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Email input
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: _selectedRole == LoginRole.doctor
-                              ? 'Doctor Email'
-                              : 'Email Address',
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        validator: (val) =>
-                            val == null || val.isEmpty ? 'Please enter email' : null,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Password input
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        validator: (val) =>
-                            val == null || val.isEmpty ? 'Please enter password' : null,
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Login Button
-                      ElevatedButton(
-                        onPressed: isBusy ? null : _submitLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _selectedRole == LoginRole.doctor
-                              ? Colors.indigo
-                              : (_selectedRole == LoginRole.admin ? Colors.deepOrange : Colors.teal),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: isBusy
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                _selectedRole == LoginRole.doctor
-                                    ? 'Log In as Specialist Doctor'
-                                    : (_selectedRole == LoginRole.admin ? 'Sign In as Admin' : 'Sign In as Patient'),
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ],
+            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'ChannelCenter',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo,
+                    letterSpacing: -0.5,
                   ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Hospital Management Portal',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+                const SizedBox(height: 28),
+
+                Container(
+                  padding: const EdgeInsets.all(24.0),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Select Account Role',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        SegmentedButton<LoginRole>(
+                          segments: const [
+                            ButtonSegment<LoginRole>(
+                              value: LoginRole.doctor,
+                              label: Text('Doctor'),
+                            ),
+                            ButtonSegment<LoginRole>(
+                              value: LoginRole.patient,
+                              label: Text('Patient'),
+                            ),
+                            ButtonSegment<LoginRole>(
+                              value: LoginRole.admin,
+                              label: Text('Admin'),
+                            ),
+                          ],
+                          selected: {_selectedRole},
+                          onSelectionChanged: (Set<LoginRole> selection) {
+                            _applyRoleDefaults(selection.first);
+                          },
+                        ),
+                        const SizedBox(height: 20),
+
+                        if (authProvider.errorMessage != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Text(
+                              authProvider.errorMessage!,
+                              style: const TextStyle(color: Colors.red, fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: _selectedRole == LoginRole.doctor
+                                ? 'Doctor Email'
+                                : 'Email Address',
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          validator: (val) =>
+                              val == null || val.isEmpty ? 'Please enter email' : null,
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          validator: (val) =>
+                              val == null || val.isEmpty ? 'Please enter password' : null,
+                        ),
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: isBusy ? null : _submitLogin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: isBusy
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    _selectedRole == LoginRole.doctor
+                                        ? 'Log In as Doctor'
+                                        : (_selectedRole == LoginRole.admin ? 'Sign In as Admin' : 'Sign In as Patient'),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

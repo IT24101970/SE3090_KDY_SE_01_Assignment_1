@@ -73,8 +73,16 @@ class DoctorSchedulingService {
       final List<dynamic> items = data['items'] ?? [];
       
       List<PatientQueueItem> queue = [];
+      int queueIndex = 1;
       for (int i = 0; i < items.length; i++) {
         final itemJson = items[i];
+        final itemDocId = itemJson['doctorId'];
+        
+        // Strict doctor filter safeguard
+        if (itemDocId != null && itemDocId != 0 && itemDocId != doctorId) {
+          continue;
+        }
+
         final apptId = itemJson['id'];
         
         // Fetch consultation details if available
@@ -94,7 +102,7 @@ class DoctorSchedulingService {
           itemJson['prescriptionData'] = consultationJson['prescriptionData'];
         }
 
-        queue.add(PatientQueueItem.fromJson(itemJson, i + 1));
+        queue.add(PatientQueueItem.fromJson(itemJson, queueIndex++));
       }
       return queue;
     } else {
