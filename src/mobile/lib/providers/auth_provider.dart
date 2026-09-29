@@ -75,6 +75,54 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> registerPatient({
+    required String fullName,
+    required String email,
+    required String password,
+    required String nic,
+    required String phoneNumber,
+    required DateTime dateOfBirth,
+    required String gender,
+    required String emergencyContact,
+    String? bloodGroup,
+    String? allergies,
+    String? medicalHistory,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _authService.registerPatient(
+        fullName: fullName,
+        email: email,
+        password: password,
+        nic: nic,
+        phoneNumber: phoneNumber,
+        dateOfBirth: dateOfBirth,
+        gender: gender,
+        emergencyContact: emergencyContact,
+        bloodGroup: bloodGroup,
+        allergies: allergies,
+        medicalHistory: medicalHistory,
+      );
+
+      if (response != null) {
+        _token = response.token;
+        _currentUser = response.user;
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> devLogin(int adminUserId) async {
     _isLoading = true;
     _errorMessage = null;

@@ -15,6 +15,7 @@ class ApiConfig {
 
   // Auth endpoints
   static String get loginUrl => '$baseUrl/Auth/login';
+  static String get registerUrl => '$baseUrl/Auth/register';
   static String get adminLoginUrl => '$baseUrl/Auth/admin/login';
   static String get devLoginUrl => '$baseUrl/Auth/dev-login';
   static String get currentUserUrl => '$baseUrl/Auth/me';

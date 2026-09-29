@@ -101,9 +101,36 @@ public class PatientService : IPatientService
         }
 
         var now = DateTime.UtcNow;
+        int? effectiveUserId = userId ?? dto.UserId;
+
+        if (!effectiveUserId.HasValue)
+        {
+            var normalizedEmail = dto.Email.Trim().ToLower();
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
+            if (existingUser != null)
+            {
+                effectiveUserId = existingUser.Id;
+            }
+            else
+            {
+                var newUser = new User
+                {
+                    FullName = dto.Name.Trim(),
+                    Email = normalizedEmail,
+                    PasswordHash = HashPassword("Patient@123"),
+                    Role = UserRole.Patient,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+                effectiveUserId = newUser.Id;
+            }
+        }
+
         var patient = new Models.Patient
         {
-            UserId = userId ?? dto.UserId,
+            UserId = effectiveUserId,
             Name = dto.Name.Trim(),
             EmergencyContact = dto.EmergencyContact.Trim(),
             DateOfBirth = DateTime.SpecifyKind(dto.DateOfBirth, DateTimeKind.Utc),
@@ -166,8 +193,27 @@ public class PatientService : IPatientService
 
         patient.UpdatedAt = DateTime.UtcNow;
 
+        // Keep linked User table row synchronized if present
+        if (patient.UserId.HasValue)
+        {
+            var user = await _context.Users.FindAsync(patient.UserId.Value);
+            if (user != null)
+            {
+                user.FullName = patient.Name;
+                user.Email = patient.Email;
+                user.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
         await _context.SaveChangesAsync();
         return (true, null, MapToResponseDto(patient));
+    }
+
+    private static string HashPassword(string password)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var bytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password + "_ChannelCenterSalt2026"));
+        return Convert.ToBase64String(bytes);
     }
 
     public async Task<(bool Success, string? ErrorMessage)> DeletePatientAsync(int id)

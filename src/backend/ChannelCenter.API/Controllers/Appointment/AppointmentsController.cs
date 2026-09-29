@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using ChannelCenter.API.DTOs.Appointment;
 using ChannelCenter.API.Services.Appointment;
+using ChannelCenter.API.Services.Patient;
 
 namespace ChannelCenter.API.Controllers.Appointment;
 
@@ -9,10 +11,12 @@ namespace ChannelCenter.API.Controllers.Appointment;
 public class AppointmentsController : ControllerBase
 {
     private readonly IAppointmentService _appointmentService;
+    private readonly IPatientService? _patientService;
 
-    public AppointmentsController(IAppointmentService appointmentService)
+    public AppointmentsController(IAppointmentService appointmentService, IPatientService? patientService = null)
     {
         _appointmentService = appointmentService;
+        _patientService = patientService;
     }
 
     // GET: api/appointments
@@ -65,6 +69,29 @@ public class AppointmentsController : ControllerBase
         if (dto.PatientId <= 0)
         {
             return BadRequest(new { message = "A valid PatientId is required to create an appointment." });
+        }
+
+        if (HttpContext.User != null && (!HttpContext.User.Identity?.IsAuthenticated == true || HttpContext.User.Claims.Any()))
+        {
+            var nameId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(nameId))
+            {
+                return Unauthorized(new { message = "User identity is unauthenticated." });
+            }
+
+            if (int.TryParse(nameId, out var userId) && _patientService != null)
+            {
+                var patientProfile = await _patientService.GetPatientByUserIdAsync(userId);
+                if (patientProfile == null)
+                {
+                    return BadRequest(new { message = "User has no registered patient profile." });
+                }
+
+                if (patientProfile.Id != dto.PatientId && !HttpContext.User.IsInRole("Admin"))
+                {
+                    return Forbid();
+                }
+            }
         }
 
         var (success, errorMessage, data) = await _appointmentService.CreateAppointmentAsync(dto);

@@ -41,6 +41,13 @@ public class PatientServiceTests
         var saved = await context.Patients.FindAsync(data.Id);
         Assert.NotNull(saved);
         Assert.Equal("199013301234", saved.NIC);
+        Assert.NotNull(saved.UserId);
+
+        var user = await context.Users.FindAsync(saved.UserId);
+        Assert.NotNull(user);
+        Assert.Equal("Kamal Perera", user.FullName);
+        Assert.Equal("kamal@example.com", user.Email);
+        Assert.Equal(UserRole.Patient, user.Role);
     }
 
     [Fact]
