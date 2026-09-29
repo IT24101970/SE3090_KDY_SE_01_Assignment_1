@@ -288,43 +288,110 @@ public class IntakeAgentService : IIntakeAgentService
 
         var text = rawText.ToLower();
 
-        // 1. Detect Symptoms
+        // 1. Detect Symptoms using natural language and spelling-variation patterns
         var symptoms = new List<StructuredSymptomDto>();
-        var symptomKeywords = new Dictionary<string, (string DefaultSeverity, string Category)>
+        var duration = ExtractDuration(text);
+
+        var symptomDefinitions = new (string CanonicalKeyword, string DefaultSeverity, string Category, string[] Patterns)[]
         {
-            { "chest pain", ("Severe", "Cardiology") },
-            { "shortness of breath", ("Severe", "Pulmonology/Cardiology") },
-            { "difficulty breathing", ("Severe", "Pulmonology/Cardiology") },
-            { "heart palpitations", ("Moderate", "Cardiology") },
-            { "numbness", ("Moderate", "Neurology") },
-            { "headache", ("Moderate", "Neurology") },
-            { "migraine", ("Moderate", "Neurology") },
-            { "fever", ("Moderate", "General") },
-            { "high fever", ("Severe", "General") },
-            { "cough", ("Mild", "General/Pulmonology") },
-            { "sore throat", ("Mild", "ENT") },
-            { "stomach pain", ("Moderate", "Gastroenterology") },
-            { "abdominal pain", ("Moderate", "Gastroenterology") },
-            { "vomiting", ("Moderate", "Gastroenterology") },
-            { "dizziness", ("Moderate", "Neurology/General") },
-            { "rash", ("Mild", "Dermatology") },
-            { "skin itch", ("Mild", "Dermatology") },
-            { "back pain", ("Moderate", "Orthopedics") },
-            { "knee pain", ("Moderate", "Orthopedics") },
-            { "joint pain", ("Moderate", "Rheumatology/Orthopedics") },
-            { "blurred vision", ("Severe", "Ophthalmology") }
+            ("chest pain", "Severe", "Cardiology", new[] {
+                "chest pain", "pain in my chest", "chest hurts", "chest burning", "burning feeling in my chest",
+                "tight chest", "chest tightness", "chest feels uncomfortable", "chest discomfort", "sharp chest pain"
+            }),
+            ("shortness of breath", "Severe", "Pulmonology/Cardiology", new[] {
+                "shortness of breath", "short of breath", "difficulty breathing", "hard to breathe", "hard to breath",
+                "trouble breathing", "breathless", "breathlessness"
+            }),
+            ("heart palpitations", "Moderate", "Cardiology", new[] {
+                "heart palpitations", "palpitations", "racing heart", "fast heartbeat", "fluttering heart"
+            }),
+            ("headache", "Moderate", "Neurology", new[] {
+                "headache", "head ache", "head hurts", "head pain", "head is pounding", "head is aching",
+                "hed is hurting", "hedache", "hed ache", "head is hurting", "bad headache", "my head hurts"
+            }),
+            ("migraine", "Moderate", "Neurology", new[] {
+                "migraine", "migrane", "visual aura", "throbbing headache"
+            }),
+            ("dizziness", "Moderate", "Neurology/General", new[] {
+                "dizziness", "dizzy", "dizy", "feeling dizzy", "lightheaded", "lightheadedness", "room is spinning"
+            }),
+            ("numbness", "Moderate", "Neurology", new[] {
+                "numbness", "numb", "tingling", "loss of feeling"
+            }),
+            ("stomach pain", "Moderate", "Gastroenterology", new[] {
+                "stomach pain", "stomach hurts", "stomach ache", "stomch hurts", "stomch ache", "stomac pain",
+                "belly pain", "tummy ache", "hurts after eating", "stomach cramps"
+            }),
+            ("abdominal pain", "Moderate", "Gastroenterology", new[] {
+                "abdominal pain", "abdomen pain", "lower abdominal"
+            }),
+            ("vomiting", "Moderate", "Gastroenterology", new[] {
+                "vomiting", "vomit", "throwing up", "threw up", "feel sick", "feeling sick", "nausea", "nauseous", "nausia", "nausious"
+            }),
+            ("high fever", "Severe", "General", new[] {
+                "high fever", "very high fever", "burning up", "high temperature"
+            }),
+            ("fever", "Moderate", "General", new[] {
+                "fever", "fevr", "feber", "feverish", "feeling feverish", "feeling hot"
+            }),
+            ("cough", "Mild", "General/Pulmonology", new[] {
+                "cough", "coughing", "dry cough", "wet cough", "hacking cough"
+            }),
+            ("sore throat", "Mild", "ENT", new[] {
+                "sore throat", "throat hurts", "throat pain", "scratchy throat", "pain swallowing"
+            }),
+            ("skin itch", "Mild", "Dermatology", new[] {
+                "skin itch", "itchy skin", "itchy thing", "red itchy thing", "itchiness"
+            }),
+            ("rash", "Mild", "Dermatology", new[] {
+                "rash", "skin rash", "red rash", "cutaneous rash", "spots on skin"
+            }),
+            ("back pain", "Moderate", "Orthopedics", new[] {
+                "back pain", "back hurts", "lower back pain", "spine pain"
+            }),
+            ("knee pain", "Moderate", "Orthopedics", new[] {
+                "knee pain", "knee hurts", "knee swelling", "swollen knee"
+            }),
+            ("joint pain", "Moderate", "Rheumatology/Orthopedics", new[] {
+                "joint pain", "joint hurts", "joint stiffness", "stiff joints", "aching joints"
+            }),
+            ("blurred vision", "Severe", "Ophthalmology", new[] {
+                "blurred vision", "blurry vision", "can't see clearly", "loss of vision"
+            })
         };
 
-        foreach (var kvp in symptomKeywords)
+        var matchedKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var def in symptomDefinitions)
         {
-            if (text.Contains(kvp.Key))
+            if (matchedKeywords.Contains(def.CanonicalKeyword)) continue;
+
+            // Check if high fever matched, skip plain fever if so
+            if (def.CanonicalKeyword == "fever" && matchedKeywords.Contains("high fever")) continue;
+            if (def.CanonicalKeyword == "headache" && matchedKeywords.Contains("migraine"))
             {
+                // Can have both or single
+            }
+
+            bool matched = false;
+            foreach (var pattern in def.Patterns)
+            {
+                if (text.Contains(pattern))
+                {
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (matched)
+            {
+                matchedKeywords.Add(def.CanonicalKeyword);
                 symptoms.Add(new StructuredSymptomDto
                 {
-                    Keyword = kvp.Key,
-                    Severity = kvp.Value.DefaultSeverity,
-                    Duration = ExtractDuration(text),
-                    Notes = $"Mapped to potential category: {kvp.Value.Category}"
+                    Keyword = def.CanonicalKeyword,
+                    Severity = def.DefaultSeverity,
+                    Duration = duration,
+                    Notes = $"Normalized from patient-expressed input. Mapped to potential category: {def.Category}"
                 });
             }
         }
@@ -335,7 +402,7 @@ public class IntakeAgentService : IIntakeAgentService
             {
                 Keyword = "General discomfort / Unspecified symptoms",
                 Severity = "Mild",
-                Duration = ExtractDuration(text),
+                Duration = duration,
                 Notes = "No predefined high-specificity keywords matched; marked for general evaluation."
             });
         }
@@ -346,8 +413,9 @@ public class IntakeAgentService : IIntakeAgentService
         var urgency = UrgencyLevel.Medium;
 
         if (text.Contains("chest pain") || (text.Contains("shortness of breath") && text.Contains("severe")) ||
-            text.Contains("unconscious") || text.Contains("fainted") || text.Contains("stroke") ||
-            (text.Contains("left arm") && text.Contains("pain")))
+            text.Contains("difficulty breathing") || text.Contains("unconscious") || text.Contains("fainted") ||
+            text.Contains("stroke") || (text.Contains("left arm") && text.Contains("pain")) ||
+            text.Contains("burning feeling in my chest"))
         {
             isEmergency = true;
             urgency = UrgencyLevel.Emergency;
@@ -382,12 +450,13 @@ public class IntakeAgentService : IIntakeAgentService
             preferredDoctor = doctorMatch.Value.Trim();
         }
 
-        if (text.Contains("cardio") || text.Contains("heart")) preferredSpecialty = "Cardiology";
-        else if (text.Contains("derma") || text.Contains("skin")) preferredSpecialty = "Dermatology";
-        else if (text.Contains("neuro") || text.Contains("brain") || text.Contains("nerves")) preferredSpecialty = "Neurology";
-        else if (text.Contains("ortho") || text.Contains("bone") || text.Contains("joint")) preferredSpecialty = "Orthopedics";
+        if (text.Contains("cardio") || text.Contains("heart") || text.Contains("chest")) preferredSpecialty = "Cardiology";
+        else if (text.Contains("derma") || text.Contains("skin") || text.Contains("rash") || text.Contains("itch")) preferredSpecialty = "Dermatology";
+        else if (text.Contains("neuro") || text.Contains("brain") || text.Contains("nerves") || text.Contains("headache") || text.Contains("migraine") || text.Contains("dizzy")) preferredSpecialty = "Neurology";
+        else if (text.Contains("ortho") || text.Contains("bone") || text.Contains("joint") || text.Contains("knee") || text.Contains("back")) preferredSpecialty = "Orthopedics";
         else if (text.Contains("pediatric") || text.Contains("child") || text.Contains("baby")) preferredSpecialty = "Pediatrics";
         else if (text.Contains("ent") || text.Contains("ear") || text.Contains("nose") || text.Contains("throat")) preferredSpecialty = "ENT";
+        else if (text.Contains("stomach") || text.Contains("vomit") || text.Contains("nausea") || text.Contains("belly")) preferredSpecialty = "Gastroenterology";
 
         var payload = new IntakeParsedSummaryPayload
         {
@@ -533,7 +602,7 @@ public class IntakeAgentService : IIntakeAgentService
 
     private static string? ExtractDuration(string text)
     {
-        var match = Regex.Match(text, @"(\d+\s+(day|days|week|weeks|month|months|hour|hours))|since\s+(yesterday|today|last\s+week)", RegexOptions.IgnoreCase);
+        var match = Regex.Match(text, @"(\d+\s+(day|days|week|weeks|month|months|hour|hours))|since\s+(yesterday|today|last\s+week|last\s+night)|for\s+(a\s+week|two\s+days|three\s+days|two\s+weeks|a\s+few\s+days|\d+\s+(day|days|week|weeks))", RegexOptions.IgnoreCase);
         return match.Success ? match.Value : null;
     }
 

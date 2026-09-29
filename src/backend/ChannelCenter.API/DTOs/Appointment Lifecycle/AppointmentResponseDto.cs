@@ -24,4 +24,8 @@ public class AppointmentResponseDto
     public string? CancelReason { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    // Student 1: Intake & Intent Structuring Fields
+    public string? NormalizedRawSymptoms { get; set; }
+    public int? TriageAssessmentId { get; set; }
 }

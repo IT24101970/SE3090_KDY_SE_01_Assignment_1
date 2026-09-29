@@ -363,10 +363,11 @@
   background: rgba(14, 25, 44, 0.55);
   backdrop-filter: blur(4px);
   z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 24px 16px;
-  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  overflow: hidden;
   animation: modalFadeIn 0.2s ease-out;
 }
 
@@ -380,7 +381,8 @@
   border: 1px solid var(--line);
   border-radius: 18px;
   width: min(720px, calc(100vw - 32px));
-  max-height: 90vh;
+  height: min(88vh, 740px);
+  max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
   box-shadow: 0 24px 70px rgba(18, 33, 58, 0.2);
@@ -389,7 +391,7 @@
 }
 
 .pm-modal-card.large {
-  width: min(900px, calc(100vw - 32px));
+  width: min(880px, calc(100vw - 32px));
 }
 
 @keyframes modalScaleUp {
@@ -428,9 +430,19 @@
   color: var(--ink);
 }
 
+.pm-modal-card form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .pm-modal-body {
-  padding: 26px 28px;
+  padding: 22px 28px;
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .pm-modal-footer {
@@ -439,7 +451,9 @@
   background: #fafbfd;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 /* Form Layout */
@@ -582,6 +596,57 @@
   margin-top: 4px;
   padding-top: 6px;
   border-top: 1px dashed var(--line);
+}
+
+.pm-slot-select-action {
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.pm-slot-select-action.selected {
+  background: var(--blue);
+  color: #fff;
+}
+
+.pm-radio-circle {
+  font-size: 12px;
+}
+
+.pm-selected-slot-banner {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.pm-selected-slot-banner .icon {
+  font-weight: 800;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
 }
 
 /* AI Intake Console Styles */

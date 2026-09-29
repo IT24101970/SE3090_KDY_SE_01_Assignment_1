@@ -145,7 +145,7 @@ public class AuthController : ControllerBase
         var jwtKey = _config["Jwt:SecretKey"] ?? "ChannelCenterDevSecret_MustBe32CharsOrMore!";
         var jwtIssuer = _config["Jwt:Issuer"] ?? "ChannelCenterAPI";
         var jwtAudience = _config["Jwt:Audience"] ?? "ChannelCenterClients";
-        var expiryMinutes = _config.GetValue<int?>("Jwt:ExpiryMinutes") ?? 60;
+        var expiryMinutes = _config.GetValue<int?>("Jwt:ExpiryMinutes") ?? 1440;
         var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
 
         var claims = new[]

@@ -2,9 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.DTOs.Appointment;
+using ChannelCenter.API.DTOs.IntakeAgent;
 using ChannelCenter.API.DTOs.SafetyAuditor;
-//using ChannelCenter.API.DTOs.Common;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.IntakeAgent;
 using ChannelCenter.API.Services.SafetyAuditor;
 
 namespace ChannelCenter.API.Services.Appointment;
@@ -12,14 +13,24 @@ namespace ChannelCenter.API.Services.Appointment;
 public class AppointmentService : IAppointmentService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IIntakeAgentService? _intakeAgentService;
     private readonly ISafetyAuditorService? _safetyAuditorService;
 
     public AppointmentService(
         ApplicationDbContext context,
+        IIntakeAgentService? intakeAgentService = null,
         ISafetyAuditorService? safetyAuditorService = null)
     {
         _context = context;
+        _intakeAgentService = intakeAgentService;
         _safetyAuditorService = safetyAuditorService;
+    }
+
+    public AppointmentService(
+        ApplicationDbContext context,
+        ISafetyAuditorService? safetyAuditorService)
+        : this(context, null, safetyAuditorService)
+    {
     }
 
     public async Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> CreateAppointmentAsync(CreateAppointmentDto dto)
@@ -88,6 +99,67 @@ public class AppointmentService : IAppointmentService
 
         _context.Appointments.Add(appointment);
         await _context.SaveChangesAsync();
+
+        // ── Student 1: Run Intake & Intent Structuring Agent ─────────────────
+        if (_intakeAgentService != null && !string.IsNullOrWhiteSpace(appointment.ReasonForVisit))
+        {
+            try
+            {
+                var intakeResult = await _intakeAgentService.ProcessIntakeAsync(new IntakeProcessRequestDto
+                {
+                    PatientId = appointment.PatientId,
+                    RawText = appointment.ReasonForVisit
+                });
+
+                if (intakeResult.Success && intakeResult.Data != null)
+                {
+                    var extractedKeywords = intakeResult.Data.Symptoms
+                        .Select(s => s.Keyword)
+                        .Where(k => !string.IsNullOrWhiteSpace(k) && !k.StartsWith("General discomfort", StringComparison.OrdinalIgnoreCase))
+                        .Distinct()
+                        .ToList();
+
+                    var rawSymptoms = extractedKeywords.Count > 0
+                        ? string.Join("; ", extractedKeywords)
+                        : (intakeResult.Data.Symptoms.FirstOrDefault()?.Keyword ?? "General evaluation / Unspecified symptoms");
+
+                    var existingTriage = await _context.TriageAssessments
+                        .FirstOrDefaultAsync(t => t.AppointmentId == appointment.Id);
+
+                    if (existingTriage != null)
+                    {
+                        existingTriage.RawSymptoms = rawSymptoms;
+                        existingTriage.UrgencyLevel = intakeResult.Data.SeverityFlags.UrgencyLevel;
+                        existingTriage.UrgencyScore = (int)intakeResult.Data.SeverityFlags.UrgencyLevel * 25;
+                        existingTriage.RecommendedSpecialty = intakeResult.Data.DoctorPreferences?.PreferredSpecialty ?? "General Practice";
+                        existingTriage.ReasoningTrace = $"Intake Agent normalized symptoms: {rawSymptoms}";
+                        existingTriage.UpdatedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        var triage = new TriageAssessment
+                        {
+                            AppointmentId = appointment.Id,
+                            RawSymptoms = rawSymptoms,
+                            UrgencyScore = (int)intakeResult.Data.SeverityFlags.UrgencyLevel * 25,
+                            UrgencyLevel = intakeResult.Data.SeverityFlags.UrgencyLevel,
+                            RecommendedSpecialty = intakeResult.Data.DoctorPreferences?.PreferredSpecialty ?? "General Practice",
+                            ReasoningTrace = $"Intake Agent normalized symptoms: {rawSymptoms}",
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        _context.TriageAssessments.Add(triage);
+                    }
+
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch
+            {
+                // Safe failure: do not write fake symptom data into RawSymptoms.
+                // The appointment remains durable; workflow/logs track failure.
+            }
+        }
 
         await StartSafetyAuditAfterSaveAsync(appointment);
 
@@ -376,11 +448,16 @@ public class AppointmentService : IAppointmentService
             .Include(a => a.Doctor!.User)
             .Include(a => a.Doctor!.Specialty)
             .Include(a => a.Schedule!.Room)
+            .Include(a => a.TriageAssessments)
             .AsNoTracking();
     }
 
     private static AppointmentResponseDto MapToDto(Models.Appointment a)
     {
+        var latestTriage = a.TriageAssessments?
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefault();
+
         return new AppointmentResponseDto
         {
             Id = a.Id,
@@ -399,7 +476,9 @@ public class AppointmentService : IAppointmentService
             ReasonForVisit = a.ReasonForVisit,
             CancelReason = a.CancelReason,
             CreatedAt = a.CreatedAt,
-            UpdatedAt = a.UpdatedAt
+            UpdatedAt = a.UpdatedAt,
+            NormalizedRawSymptoms = latestTriage?.RawSymptoms,
+            TriageAssessmentId = latestTriage?.Id
         };
     }
 }

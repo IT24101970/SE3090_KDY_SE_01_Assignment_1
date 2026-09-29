@@ -79,6 +79,10 @@ export default function AppointmentDirectoryTab() {
 
   const handleAppointmentBooked = (created, message) => {
     showNotification(message);
+    setStatusFilter('');
+    setStartDateFilter('');
+    setUpcomingOnly(false);
+    setPage(1);
     fetchAppointments();
   };
 

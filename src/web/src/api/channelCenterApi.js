@@ -41,6 +41,13 @@ export async function apiRequest(path, options = {}) {
       else if (response.status === 409) message = 'A conflicting record or booking already exists.';
       else message = `Request failed with status ${response.status}`;
     }
+    // Auto-logout when the token has expired or is invalid
+    if (response.status === 401) {
+      localStorage.removeItem('channel-center-token');
+      localStorage.removeItem('channel-center-user');
+      localStorage.removeItem('channel-center-role');
+      window.dispatchEvent(new CustomEvent('session-expired'));
+    }
     const error = new Error(message);
     error.status = response.status;
     error.data = body;

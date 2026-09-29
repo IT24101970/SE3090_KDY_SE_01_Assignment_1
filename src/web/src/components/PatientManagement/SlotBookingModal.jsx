@@ -23,6 +23,7 @@ export default function SlotBookingModal({
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
 
+  const [patientError, setPatientError] = useState('');
   const [reasonForVisit, setReasonForVisit] = useState('');
   const [reasonError, setReasonError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -34,9 +35,8 @@ export default function SlotBookingModal({
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
     if (isOpen) {
-      if (preselectedPatient) {
-        setSelectedPatientId(preselectedPatient.id);
-      }
+      setSelectedPatientId(preselectedPatient ? preselectedPatient.id : '');
+      setPatientError('');
       setSelectedSlot(null);
       setReasonForVisit('');
       setReasonError('');
@@ -93,8 +93,18 @@ export default function SlotBookingModal({
       if (selectedDate) filter.date = selectedDate;
 
       const availableSlots = await appointmentApi.getSlots(filter);
-      setSlots(availableSlots || []);
-      setSelectedSlot((prev) => (prev && !availableSlots.some((s) => s.scheduleId === prev.scheduleId) ? null : prev));
+      const list = availableSlots || [];
+      setSlots(list);
+      const openSlots = list.filter((s) => s.isAvailable);
+      setSelectedSlot((prev) => {
+        if (prev && openSlots.some((s) => s.scheduleId === prev.scheduleId)) {
+          return prev;
+        }
+        if (openSlots.length === 1) {
+          return openSlots[0];
+        }
+        return null;
+      });
     } catch (err) {
       setApiError(err.message || 'Failed to search channel slots.');
       setSlots([]);
@@ -121,17 +131,24 @@ export default function SlotBookingModal({
     e.preventDefault();
     setApiError('');
     setReasonError('');
+    setPatientError('');
 
     if (!selectedPatientId) {
-      setApiError('Please select a patient for this appointment.');
+      setPatientError('Please select a target patient for this appointment.');
+      setApiError('Please select a target patient from the dropdown above.');
       return;
     }
     if (!selectedSlot) {
-      setApiError('Please select an available appointment slot.');
+      setApiError('Please click on an available session slot from the list above to select it.');
       return;
     }
-    if (!reasonForVisit.trim() || reasonForVisit.trim().length < 3) {
-      setReasonError('Reason for visit must be at least 3 characters.');
+    const cleanReason = reasonForVisit.trim();
+    if (!cleanReason || cleanReason.length < 3) {
+      setReasonError('Reason for visit must be between 3 and 500 characters.');
+      return;
+    }
+    if (cleanReason.length > 500) {
+      setReasonError('Reason for visit cannot exceed 500 characters.');
       return;
     }
 
@@ -142,11 +159,16 @@ export default function SlotBookingModal({
         doctorId: selectedSlot.doctorId,
         scheduleId: selectedSlot.scheduleId,
         appointmentDate: selectedSlot.startTime,
-        reasonForVisit: reasonForVisit.trim(),
+        reasonForVisit: cleanReason,
       };
 
       const result = await appointmentApi.create(payload);
-      onBooked(result, 'Appointment successfully booked.');
+      const successMsg = result?.normalizedRawSymptoms
+        ? `Appointment booked. Intake symptoms: "${result.normalizedRawSymptoms}"`
+        : 'Appointment successfully booked.';
+      if (onBooked) {
+        onBooked(result, successMsg);
+      }
       onClose();
     } catch (err) {
       setApiError(err.message || 'Booking rejected by server.');
@@ -158,16 +180,16 @@ export default function SlotBookingModal({
   return (
     <div className="pm-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="pm-modal-card large" onClick={(e) => e.stopPropagation()}>
-        <div className="pm-modal-header">
-          <div>
-            <span className="eyebrow">Channel Slot Booking Lifecycle</span>
-            <h2>Book Patient Appointment</h2>
+        <form onSubmit={handleBooking} className="pm-modal-form" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+          <div className="pm-modal-header" style={{ flexShrink: 0 }}>
+            <div>
+              <span className="eyebrow">Channel Slot Booking Lifecycle</span>
+              <h2>Book Patient Appointment</h2>
+            </div>
+            <button type="button" className="pm-modal-close" onClick={onClose} aria-label="Close dialog">×</button>
           </div>
-          <button className="pm-modal-close" onClick={onClose} aria-label="Close dialog">×</button>
-        </div>
 
-        <form onSubmit={handleBooking}>
-          <div className="pm-modal-body">
+          <div className="pm-modal-body" style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
             {apiError && (
               <div className="pm-alert error" role="alert">
                 <span>⚠️</span> <span>{apiError}</span>
@@ -197,22 +219,28 @@ export default function SlotBookingModal({
                   <span className="pm-badge low">Locked</span>
                 </div>
               ) : (
-                <select
-                  id="booking-patient-select"
-                  className="pm-select-field"
-                  style={{ width: '100%', marginTop: '4px' }}
-                  value={selectedPatientId}
-                  onChange={(e) => setSelectedPatientId(e.target.value)}
-                  disabled={submitting}
-                  required
-                >
-                  <option value="">-- Choose registered patient --</option>
-                  {patients.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (NIC: {p.nic}, Phone: {p.phoneNumber})
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    id="booking-patient-select"
+                    className={`pm-select-field ${patientError ? 'error' : ''}`}
+                    style={{ width: '100%', marginTop: '4px' }}
+                    value={selectedPatientId}
+                    onChange={(e) => {
+                      setSelectedPatientId(e.target.value);
+                      if (patientError) setPatientError('');
+                      if (apiError) setApiError('');
+                    }}
+                    disabled={submitting}
+                  >
+                    <option value="">-- Choose registered patient --</option>
+                    {patients.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (NIC: {p.nic}, Phone: {p.phoneNumber})
+                      </option>
+                    ))}
+                  </select>
+                  {patientError && <span className="pm-field-error">{patientError}</span>}
+                </>
               )}
             </div>
 
@@ -229,7 +257,18 @@ export default function SlotBookingModal({
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
                 <div>
-                  <label className="pm-label" style={{ fontSize: '11px' }}>Date</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className="pm-label" style={{ fontSize: '11px' }}>Date</label>
+                    {selectedDate && (
+                      <button
+                        type="button"
+                        style={{ background: 'none', border: 'none', color: 'var(--blue)', fontSize: '10px', cursor: 'pointer', padding: 0 }}
+                        onClick={() => setSelectedDate('')}
+                      >
+                        All Dates
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="date"
                     className="pm-input"
@@ -307,7 +346,19 @@ export default function SlotBookingModal({
                         key={slot.scheduleId}
                         className={`pm-slot-card ${isSelected ? 'selected' : ''} ${!canBook ? 'disabled' : ''}`}
                         onClick={() => {
-                          if (canBook) setSelectedSlot(slot);
+                          if (canBook) {
+                            setSelectedSlot(slot);
+                            setApiError('');
+                          }
+                        }}
+                        role="button"
+                        tabIndex={canBook ? 0 : -1}
+                        onKeyDown={(e) => {
+                          if (canBook && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            setSelectedSlot(slot);
+                            setApiError('');
+                          }
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -324,9 +375,25 @@ export default function SlotBookingModal({
                           <span>📍 {slot.roomName} ({slot.roomFloor})</span>
                           <span>Max: {slot.maxPatients}</span>
                         </div>
+
+                        {canBook && (
+                          <div className={`pm-slot-select-action ${isSelected ? 'selected' : ''}`}>
+                            <span className="pm-radio-circle">{isSelected ? '●' : '○'}</span>
+                            <span>{isSelected ? '✓ Selected Slot' : 'Click to Select Slot'}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {selectedSlot && (
+                <div className="pm-selected-slot-banner">
+                  <span className="icon">✓</span>
+                  <div>
+                    <strong>Selected Session:</strong> {selectedSlot.doctorName} ({selectedSlot.specialtyName}) · {formatSlotTime(selectedSlot.startTime)}–{formatSlotTime(selectedSlot.endTime)} · {selectedSlot.roomName}
+                  </div>
                 </div>
               )}
             </div>
@@ -334,31 +401,46 @@ export default function SlotBookingModal({
             {/* Step 4: Reason for Visit */}
             <div style={{ marginTop: '18px' }}>
               <label className="pm-label" htmlFor="booking-reason">
-                Reason for Visit / Clinical Notes <span className="required">*</span>
+                Reason for Visit <span className="required">*</span>
               </label>
+              <p style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px', marginBottom: '6px' }}>
+                Describe your reason for visiting in your own words.
+              </p>
               <textarea
                 id="booking-reason"
                 className={`pm-textarea ${reasonError ? 'error' : ''}`}
                 style={{ width: '100%', marginTop: '4px' }}
-                rows={2}
-                placeholder="Brief summary of clinical complaint or appointment objective (e.g. Routine cardiology follow-up)"
+                rows={3}
+                placeholder="Describe your reason for visiting in your own words (e.g. I have a bad headache since yesterday and feel dizzy)"
                 value={reasonForVisit}
+                maxLength={500}
                 onChange={(e) => {
                   setReasonForVisit(e.target.value);
                   if (reasonError) setReasonError('');
                 }}
                 disabled={submitting}
-                required
               />
               {reasonError && <span className="pm-field-error">{reasonError}</span>}
             </div>
           </div>
 
-          <div className="pm-modal-footer">
+          {apiError && (
+            <div style={{ padding: '6px 28px 0', background: '#fafbfd', flexShrink: 0 }}>
+              <div className="pm-alert error" style={{ margin: 0, padding: '7px 12px', fontSize: '12px' }} role="alert">
+                <span>⚠️</span> <span>{apiError}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="pm-modal-footer" style={{ flexShrink: 0 }}>
             <button
               type="button"
               className="outline-button"
-              onClick={onClose}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }}
               disabled={submitting}
             >
               Cancel
@@ -366,7 +448,7 @@ export default function SlotBookingModal({
             <button
               type="submit"
               className="primary-button"
-              disabled={submitting || !selectedSlot}
+              disabled={submitting}
             >
               {submitting ? 'Confirming Booking...' : 'Confirm Appointment'}
             </button>

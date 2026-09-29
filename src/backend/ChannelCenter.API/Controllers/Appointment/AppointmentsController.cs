@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Appointment;
 using ChannelCenter.API.Services.Appointment;
 
@@ -61,6 +60,11 @@ public class AppointmentsController : ControllerBase
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+
+        if (dto.PatientId <= 0)
+        {
+            return BadRequest(new { message = "A valid PatientId is required to create an appointment." });
         }
 
         var (success, errorMessage, data) = await _appointmentService.CreateAppointmentAsync(dto);
