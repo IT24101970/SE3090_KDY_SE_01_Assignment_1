@@ -4,7 +4,7 @@ import '../providers/triage_provider.dart';
 import '../widgets/urgency_badge.dart';
 
 class TriageHistoryScreen extends StatelessWidget {
-  const TriageHistoryScreen({Key? key}) : super(key: key);
+  const TriageHistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -6,7 +6,7 @@ import '../providers/triage_provider.dart';
 import 'triage_status_screen.dart';
 
 class SymptomWizardScreen extends StatefulWidget {
-  const SymptomWizardScreen({Key? key}) : super(key: key);
+  const SymptomWizardScreen({super.key});
 
   @override
   State<SymptomWizardScreen> createState() => _SymptomWizardScreenState();
@@ -23,9 +23,9 @@ class _SymptomWizardScreenState extends State<SymptomWizardScreen> {
   final _rawSymptomsController = TextEditingController();
   final _symptomKeywordController = TextEditingController();
 
-  int _appointmentId = 42;
+  final int _appointmentId = 42;
   double _severityRating = 5;
-  int _durationInDays = 3;
+  final int _durationInDays = 3;
   DateTime _onsetDate = DateTime.now();
 
   final List<SymptomItem> _symptomItems = [];
@@ -199,7 +199,7 @@ class _SymptomWizardScreenState extends State<SymptomWizardScreen> {
                           spacing: 8,
                           children: _symptomItems.map((item) => Chip(
                             label: Text('${item.symptomKeyword} (${item.severityRating}/10)'),
-                            backgroundColor: Colors.cyan.withOpacity(0.2),
+                            backgroundColor: Colors.cyan.withValues(alpha: 0.2),
                             labelStyle: const TextStyle(color: Colors.cyanAccent),
                           )).toList(),
                         ),

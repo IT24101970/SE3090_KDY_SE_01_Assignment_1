@@ -3,12 +3,12 @@ import '../../models/doctor_scheduling_models.dart';
 import '../../services/doctor_scheduling_service.dart';
 import 'consultation_attendance_screen.dart';
 import 'doctor_leave_screen.dart';
-import 'doctor_login_screen.dart';
+import '../auth/login_screen.dart';
 
 class DoctorDashboardScreen extends StatefulWidget {
   final DoctorProfile? doctorProfile;
 
-  const DoctorDashboardScreen({Key? key, this.doctorProfile}) : super(key: key);
+  const DoctorDashboardScreen({super.key, this.doctorProfile});
 
   @override
   State<DoctorDashboardScreen> createState() => _DoctorDashboardScreenState();
@@ -105,7 +105,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
               Navigator.pop(ctx);
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (_) => const DoctorLoginScreen()),
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),

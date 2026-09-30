@@ -11,9 +11,9 @@ class WorkflowStatusDetailScreen extends StatefulWidget {
   final int workflowId;
 
   const WorkflowStatusDetailScreen({
-    Key? key,
+    super.key,
     required this.workflowId,
-  }) : super(key: key);
+  });
 
   @override
   State<WorkflowStatusDetailScreen> createState() =>

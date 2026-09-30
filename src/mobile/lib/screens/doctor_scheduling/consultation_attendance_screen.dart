@@ -5,8 +5,7 @@ import '../../services/doctor_scheduling_service.dart';
 class ConsultationAttendanceScreen extends StatefulWidget {
   final PatientQueueItem patient;
 
-  const ConsultationAttendanceScreen({Key? key, required this.patient})
-      : super(key: key);
+  const ConsultationAttendanceScreen({super.key, required this.patient});
 
   @override
   State<ConsultationAttendanceScreen> createState() =>

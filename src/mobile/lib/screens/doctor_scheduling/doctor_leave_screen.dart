@@ -5,7 +5,7 @@ import '../../services/doctor_scheduling_service.dart';
 class DoctorLeaveScreen extends StatefulWidget {
   final int doctorId;
 
-  const DoctorLeaveScreen({Key? key, this.doctorId = 1}) : super(key: key);
+  const DoctorLeaveScreen({super.key, this.doctorId = 1});
 
   @override
   State<DoctorLeaveScreen> createState() => _DoctorLeaveScreenState();

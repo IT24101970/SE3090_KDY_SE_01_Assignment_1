@@ -13,7 +13,7 @@ void main() {
 }
 
 class DoctorSchedulingMobileApp extends StatelessWidget {
-  const DoctorSchedulingMobileApp({Key? key}) : super(key: key);
+  const DoctorSchedulingMobileApp({super.key});
 
   @override
   Widget build(BuildContext context) {

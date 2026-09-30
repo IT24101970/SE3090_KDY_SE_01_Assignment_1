@@ -8,7 +8,7 @@ import '../doctor_scheduling/doctor_dashboard_screen.dart';
 enum LoginRole { doctor, patient, admin }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 
 class PatientRegisterScreen extends StatefulWidget {
-  const PatientRegisterScreen({Key? key}) : super(key: key);
+  const PatientRegisterScreen({super.key});
 
   @override
   State<PatientRegisterScreen> createState() => _PatientRegisterScreenState();
@@ -302,7 +302,7 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedGender,
+                            initialValue: _selectedGender,
                             decoration: InputDecoration(
                               labelText: 'Gender *',
                               prefixIcon: const Icon(Icons.wc_outlined),
@@ -317,7 +317,7 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedBloodGroup,
+                            initialValue: _selectedBloodGroup,
                             decoration: InputDecoration(
                               labelText: 'Blood Group',
                               prefixIcon: const Icon(Icons.invert_colors_outlined),

@@ -6,11 +6,11 @@ class UrgencyBadge extends StatelessWidget {
   final int? urgencyScore;
 
   const UrgencyBadge({
-    Key? key,
+    super.key,
     this.level,
     this.urgencyLevel,
     this.urgencyScore,
-  }) : super(key: key);
+  });
 
   String get _displayLevel => urgencyLevel ?? level ?? 'Low';
 

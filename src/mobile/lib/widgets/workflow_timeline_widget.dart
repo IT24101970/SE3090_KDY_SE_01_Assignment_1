@@ -6,9 +6,9 @@ class WorkflowTimelineWidget extends StatelessWidget {
   final List<WorkflowAuditSummary> auditLogs;
 
   const WorkflowTimelineWidget({
-    Key? key,
+    super.key,
     required this.auditLogs,
-  }) : super(key: key);
+  });
 
   String _formatTimestamp(String raw) {
     if (raw.isEmpty) return '';

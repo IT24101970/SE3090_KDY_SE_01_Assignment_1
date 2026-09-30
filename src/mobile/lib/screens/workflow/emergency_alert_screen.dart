@@ -8,7 +8,7 @@ import '../../widgets/emergency_alert_card.dart';
 import 'workflow_status_detail_screen.dart';
 
 class EmergencyAlertScreen extends StatefulWidget {
-  const EmergencyAlertScreen({Key? key}) : super(key: key);
+  const EmergencyAlertScreen({super.key});
 
   @override
   State<EmergencyAlertScreen> createState() => _EmergencyAlertScreenState();

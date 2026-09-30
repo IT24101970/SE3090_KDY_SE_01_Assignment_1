@@ -8,10 +8,10 @@ class EmergencyAlertCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const EmergencyAlertCard({
-    Key? key,
+    super.key,
     required this.alert,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   String _formatTimestamp(String raw) {
     if (raw.isEmpty) return '';

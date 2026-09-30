@@ -6,7 +6,7 @@ import 'symptom_wizard_screen.dart';
 import 'triage_history_screen.dart';
 
 class TriageStatusScreen extends StatelessWidget {
-  const TriageStatusScreen({Key? key}) : super(key: key);
+  const TriageStatusScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -137,9 +137,9 @@ class TriageStatusScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7).withOpacity(0.12),
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.4)),
+                    border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.4)),
                   ),
                   child: Text(
                     assessment.reasoningTrace,

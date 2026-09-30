@@ -15,7 +15,7 @@ class TriageProvider with ChangeNotifier {
   TriageAssessment? _currentAssessment;
   TriageAssessment? get currentAssessment => _currentAssessment;
 
-  List<TriageAssessment> _history = [];
+  final List<TriageAssessment> _history = [];
   List<TriageAssessment> get history => _history;
 
   TriageProvider({this.baseUrl = 'http://localhost:5066/api'});
