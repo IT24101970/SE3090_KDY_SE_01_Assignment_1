@@ -201,6 +201,14 @@ class EmergencyAlert {
   bool get isEmergency => riskLevel.toLowerCase() == 'emergency';
   bool get isHighRisk => riskLevel.toLowerCase() == 'high' || isEmergency;
 
+  String get patientName => objective.contains('Patient:')
+      ? objective.split('Patient:')[1].trim()
+      : 'Patient #${appointmentId ?? id}';
+  String get specialty => 'General Medicine';
+  String get assignedDoctorName => 'AI Assigned Specialist';
+  String get riskScore => riskLevel;
+  String get statusText => getStatusDisplayName(status);
+
   Color get riskColor {
     switch (riskLevel.toLowerCase()) {
       case 'emergency':

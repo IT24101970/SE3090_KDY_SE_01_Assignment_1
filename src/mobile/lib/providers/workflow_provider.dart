@@ -14,6 +14,7 @@ class WorkflowProvider with ChangeNotifier {
 
   List<EmergencyAlert> _alerts = [];
   List<EmergencyAlert> get alerts => _alerts;
+  List<EmergencyAlert> get workflows => _alerts;
 
   List<EmergencyAlert> get activeEmergencyAlerts =>
       _alerts.where((a) => a.isHighRisk || a.status == WorkflowStatus.pausedForApproval).toList();
@@ -58,6 +59,10 @@ class WorkflowProvider with ChangeNotifier {
     await refreshAlerts(token, isBackground: false);
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> fetchWorkflows([String? token]) async {
+    await fetchAlerts(token);
   }
 
   Future<void> refreshAlerts(String? token, {bool isBackground = false}) async {

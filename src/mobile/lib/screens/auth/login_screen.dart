@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/doctor_scheduling_models.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/doctor_scheduling_service.dart';
-import '../doctor_scheduling/doctor_dashboard_screen.dart';
-
-enum LoginRole { doctor, patient, admin }
+import '../../providers/notification_provider.dart';
+import '../admin/admin_system_overview_screen.dart';
+import '../doctor/doctor_dashboard_screen.dart';
+import '../patient/patient_dashboard_screen.dart';
+import 'patient_register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({Key? key}) : super(key: key);
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -18,48 +18,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
-  LoginRole _selectedRole = LoginRole.doctor;
-  bool _isLoadingDoctor = false;
-  List<DoctorProfile> _doctors = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _applyRoleDefaults(_selectedRole);
-    _loadDoctorsFromDatabase();
-  }
-
-  Future<void> _loadDoctorsFromDatabase() async {
-    try {
-      final fetched = await DoctorSchedulingService.getDoctors();
-      if (!mounted) return;
-      setState(() {
-        _doctors = fetched;
-        if (_selectedRole == LoginRole.doctor && _doctors.isNotEmpty) {
-          _emailController.text = _doctors.first.email;
-        }
-      });
-    } catch (_) {}
-  }
-
-  void _applyRoleDefaults(LoginRole role) {
-    setState(() {
-      _selectedRole = role;
-      if (role == LoginRole.doctor) {
-        _emailController.text = _doctors.isNotEmpty
-            ? _doctors.first.email
-            : 'sarah.jenkins@channelcenter.hospital';
-        _passwordController.text = 'DoctorPass123!';
-      } else if (role == LoginRole.patient) {
-        _emailController.text = 'john.doe@example.com';
-        _passwordController.text = 'Password123!';
-      } else {
-        _emailController.text = 'admin@channelcenter.hospital';
-        _passwordController.text = 'Admin123!';
-      }
-    });
-  }
 
   @override
   void dispose() {
@@ -71,67 +29,65 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submitLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedRole == LoginRole.doctor) {
-      setState(() {
-        _isLoadingDoctor = true;
-      });
-
-      final email = _emailController.text.trim().toLowerCase();
-      DoctorProfile doctorProfile;
-
-      final matched = _doctors.where(
-        (d) => d.email.toLowerCase() == email || d.name.toLowerCase().contains(email.replaceAll('.', ' ')),
-      ).toList();
-
-      if (matched.isNotEmpty) {
-        doctorProfile = matched.first;
-      } else if (_doctors.isNotEmpty) {
-        doctorProfile = _doctors.first;
-      } else {
-        doctorProfile = DoctorProfile(
-          id: 1,
-          name: 'Dr. Sarah Jenkins',
-          specialty: 'Cardiology',
-          email: email.isNotEmpty ? email : 'sarah.jenkins@channelcenter.hospital',
-        );
-      }
-
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (!mounted) return;
-      setState(() {
-        _isLoadingDoctor = false;
-      });
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DoctorDashboardScreen(doctorProfile: doctorProfile),
-        ),
-      );
-      return;
-    }
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final notifProvider = Provider.of<NotificationProvider>(context, listen: false);
+
     final success = await authProvider.login(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
-      isAdmin: _selectedRole == LoginRole.admin,
     );
 
     if (success && mounted) {
+      final user = authProvider.currentUser;
+      if (user == null) return;
+
+      // Sync role notifications
+      await notifProvider.refreshNotifications(
+        role: user.role,
+        userId: user.id,
+        patientId: user.patientId,
+      );
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Welcome back, ${authProvider.currentUser?.fullName}!'),
-          backgroundColor: Colors.green.shade700,
+          content: Text('Welcome back, ${user.fullName}!'),
+          backgroundColor: Colors.indigo.shade700,
+          duration: const Duration(seconds: 2),
         ),
       );
+
+      // Auto-detect role and navigate to appropriate dashboard
+      if (user.isAdmin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminSystemOverviewScreen()),
+        );
+      } else if (user.isDoctor) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const DoctorDashboardScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PatientDashboardScreen()),
+        );
+      }
     }
+  }
+
+  void _fillSampleCredentials(String email, String password) {
+    setState(() {
+      _emailController.text = email;
+      _passwordController.text = password;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final isBusy = authProvider.isLoading || _isLoadingDoctor;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -152,13 +108,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header Logo & Title
-                      Icon(
+                      // Header Brand & Icon
+                      const Icon(
                         Icons.medical_services_rounded,
                         size: 56,
-                        color: _selectedRole == LoginRole.doctor
-                            ? Colors.indigo
-                            : (_selectedRole == LoginRole.admin ? Colors.deepOrange : Colors.teal),
+                        color: Colors.indigo,
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -166,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: Colors.indigo,
+                              color: Colors.indigo.shade900,
                             ),
                       ),
                       const SizedBox(height: 4),
@@ -174,37 +128,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         'Unified Authentication Portal',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           color: Colors.grey.shade600,
                         ),
                       ),
                       const SizedBox(height: 24),
-
-                      // Role Switcher
-                      SegmentedButton<LoginRole>(
-                        segments: const [
-                          ButtonSegment<LoginRole>(
-                            value: LoginRole.doctor,
-                            label: Text('Doctor'),
-                            icon: Icon(Icons.medical_services),
-                          ),
-                          ButtonSegment<LoginRole>(
-                            value: LoginRole.patient,
-                            label: Text('Patient'),
-                            icon: Icon(Icons.person),
-                          ),
-                          ButtonSegment<LoginRole>(
-                            value: LoginRole.admin,
-                            label: Text('Admin'),
-                            icon: Icon(Icons.admin_panel_settings),
-                          ),
-                        ],
-                        selected: {_selectedRole},
-                        onSelectionChanged: (Set<LoginRole> selection) {
-                          _applyRoleDefaults(selection.first);
-                        },
-                      ),
-                      const SizedBox(height: 20),
 
                       // Error message banner
                       if (authProvider.errorMessage != null) ...[
@@ -236,16 +164,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
-                          labelText: _selectedRole == LoginRole.doctor
-                              ? 'Doctor Email'
-                              : 'Email Address',
+                          labelText: 'Email Address',
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         validator: (val) =>
-                            val == null || val.isEmpty ? 'Please enter email' : null,
+                            val == null || val.trim().isEmpty ? 'Please enter your email' : null,
                       ),
                       const SizedBox(height: 16),
 
@@ -261,24 +187,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         validator: (val) =>
-                            val == null || val.isEmpty ? 'Please enter password' : null,
+                            val == null || val.trim().isEmpty ? 'Please enter your password' : null,
                       ),
                       const SizedBox(height: 24),
 
-                      // Login Button
+                      // Submit Login Button
                       ElevatedButton(
-                        onPressed: isBusy ? null : _submitLogin,
+                        onPressed: authProvider.isLoading ? null : _submitLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _selectedRole == LoginRole.doctor
-                              ? Colors.indigo
-                              : (_selectedRole == LoginRole.admin ? Colors.deepOrange : Colors.teal),
+                          backgroundColor: Colors.indigo,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: isBusy
+                        child: authProvider.isLoading
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
@@ -287,15 +211,72 @@ class _LoginScreenState extends State<LoginScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : Text(
-                                _selectedRole == LoginRole.doctor
-                                    ? 'Log In as Specialist Doctor'
-                                    : (_selectedRole == LoginRole.admin ? 'Sign In as Admin' : 'Sign In as Patient'),
-                                style: const TextStyle(
-                                  fontSize: 15,
+                            : const Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Register Link for Patients
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Don't have a patient account? ",
+                            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PatientRegisterScreen(),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'Register Here',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigo,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 28),
+
+                      // Quick Demo Autofill Chips
+                      Text(
+                        'Demo Quick Autofill:',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          ActionChip(
+                            avatar: const Icon(Icons.person, size: 14),
+                            label: const Text('Patient Demo', style: TextStyle(fontSize: 11)),
+                            onPressed: () => _fillSampleCredentials('kamal@example.com', 'Patient@123'),
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.medical_services, size: 14),
+                            label: const Text('Doctor Demo', style: TextStyle(fontSize: 11)),
+                            onPressed: () => _fillSampleCredentials('silva@hospital.com', 'DoctorPass123!'),
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.admin_panel_settings, size: 14),
+                            label: const Text('Admin Demo', style: TextStyle(fontSize: 11)),
+                            onPressed: () => _fillSampleCredentials('admin@channelcenter.hospital', 'Admin123!'),
+                          ),
+                        ],
                       ),
                     ],
                   ),

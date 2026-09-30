@@ -111,6 +111,7 @@ class PatientQueueItem {
   final int doctorId;
   final String patientName;
   final int queueNumber;
+  final String symptoms;
   AttendanceStatus attendanceStatus;
   String clinicalNotes;
   String prescriptionData;
@@ -120,6 +121,7 @@ class PatientQueueItem {
     this.doctorId = 0,
     required this.patientName,
     required this.queueNumber,
+    this.symptoms = 'General Consultation',
     this.attendanceStatus = AttendanceStatus.pending,
     this.clinicalNotes = '',
     this.prescriptionData = '{}',
@@ -131,6 +133,7 @@ class PatientQueueItem {
       doctorId: json['doctorId'] ?? 0,
       patientName: json['patientName'] ?? 'Patient',
       queueNumber: queueIndex,
+      symptoms: json['symptoms'] ?? json['reason'] ?? 'General Consultation',
       attendanceStatus: parseAttendanceStatus(json['attendanceStatus'] ?? json['status']),
       clinicalNotes: json['clinicalNotes'] ?? '',
       prescriptionData: json['prescriptionData'] ?? '{}',

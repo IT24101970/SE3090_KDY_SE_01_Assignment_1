@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
-import 'providers/workflow_provider.dart';
+import 'providers/notification_provider.dart';
 import 'providers/triage_provider.dart';
+import 'providers/workflow_provider.dart';
+import 'screens/admin/admin_system_overview_screen.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/doctor_scheduling/doctor_dashboard_screen.dart';
-import 'screens/home_navigation_screen.dart';
+import 'screens/doctor/doctor_dashboard_screen.dart';
+import 'screens/patient/patient_dashboard_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const DoctorSchedulingMobileApp());
+  runApp(const ChannelCenterMobileApp());
 }
 
-class DoctorSchedulingMobileApp extends StatelessWidget {
-  const DoctorSchedulingMobileApp({super.key});
+class ChannelCenterMobileApp extends StatelessWidget {
+  const ChannelCenterMobileApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +23,9 @@ class DoctorSchedulingMobileApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(),
+        ),
+        ChangeNotifierProvider<NotificationProvider>(
+          create: (_) => NotificationProvider(),
         ),
         ChangeNotifierProvider<WorkflowProvider>(
           create: (_) => WorkflowProvider(),
@@ -30,17 +35,20 @@ class DoctorSchedulingMobileApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'ChannelCenter Hospital App',
+        title: 'ChannelCenter Healthcare System',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.indigo,
-            brightness: Brightness.light,
+            brightness: Brightness.dark,
           ),
+          scaffoldBackgroundColor: const Color(0xFF0F172A),
           appBarTheme: const AppBarTheme(
             centerTitle: false,
             elevation: 0,
+            backgroundColor: Color(0xFF1E293B),
+            foregroundColor: Colors.white,
           ),
           cardTheme: CardThemeData(
             elevation: 2,
@@ -53,16 +61,21 @@ class DoctorSchedulingMobileApp extends StatelessWidget {
           builder: (context, auth, _) {
             if (auth.isLoading) {
               return const Scaffold(
+                backgroundColor: Color(0xFF0F172A),
                 body: Center(
-                  child: CircularProgressIndicator(),
+                  child: CircularProgressIndicator(color: Colors.cyan),
                 ),
               );
             }
             if (auth.isAuthenticated) {
-              if (auth.isDoctor) {
+              // Unified role-based redirection
+              if (auth.isAdmin) {
+                return const AdminSystemOverviewScreen();
+              } else if (auth.isDoctor) {
                 return const DoctorDashboardScreen();
+              } else {
+                return const PatientDashboardScreen();
               }
-              return const HomeNavigationScreen();
             }
             return const LoginScreen();
           },
@@ -71,3 +84,4 @@ class DoctorSchedulingMobileApp extends StatelessWidget {
     );
   }
 }
+
