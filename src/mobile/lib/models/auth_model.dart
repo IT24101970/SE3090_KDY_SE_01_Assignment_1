@@ -1,11 +1,13 @@
 class AuthUser {
   final int id;
+  final int? patientId;
   final String fullName;
   final String email;
   final String role; // "Patient", "Doctor", "Staff", "Admin"
 
   AuthUser({
     required this.id,
+    this.patientId,
     required this.fullName,
     required this.email,
     required this.role,
@@ -14,6 +16,7 @@ class AuthUser {
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     return AuthUser(
       id: json['id'] ?? json['userId'] ?? 0,
+      patientId: json['patientId'] != null ? int.tryParse(json['patientId'].toString()) : null,
       fullName: json['fullName'] ?? json['name'] ?? 'User',
       email: json['email'] ?? '',
       role: json['role']?.toString() ?? json['UserRole']?.toString() ?? 'Patient',
@@ -22,6 +25,7 @@ class AuthUser {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'patientId': patientId,
     'fullName': fullName,
     'email': email,
     'role': role,
