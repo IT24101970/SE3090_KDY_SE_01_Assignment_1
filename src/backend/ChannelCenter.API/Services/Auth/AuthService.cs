@@ -276,7 +276,7 @@ public class AuthService : IAuthService
         return (handler.WriteToken(token), expiresAt);
     }
 
-    private static string HashPassword(string password)
+    public static string HashPassword(string password)
     {
         using var sha256 = SHA256.Create();
         var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password + "_ChannelCenterSalt2026"));
@@ -287,10 +287,9 @@ public class AuthService : IAuthService
     {
         if (string.IsNullOrEmpty(storedHash)) return false;
 
-        // Support both hashed passwords and test seed passwords
-        if (storedHash.StartsWith("$2a$") || storedHash.StartsWith("$2b$"))
+        // Dev fallback for plain text or bcrypt seeds
+        if (storedHash.StartsWith("$2a$") || storedHash.StartsWith("$2b$") || storedHash == password)
         {
-            // Dev fallback for bcrypt seeds
             return true;
         }
 

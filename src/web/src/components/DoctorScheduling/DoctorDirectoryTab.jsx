@@ -4,16 +4,14 @@ const API_BASE = 'http://localhost:5066/api/doctor-scheduling';
 
 export default function DoctorDirectoryTab() {
   const [doctors, setDoctors] = useState([]);
-  const [editingDoctorId, setEditingDoctorId] = useState(null);
   const [alert, setAlert] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingDoctorId, setEditingDoctorId] = useState(null);
 
   const [formData, setFormData] = useState({
-    userId: 1,
-    specialtyId: 1,
-    qualifications: ''
-  });
-
-  const [editFormData, setEditFormData] = useState({
+    doctorName: '',
+    email: '',
+    password: '',
     specialtyId: 1,
     qualifications: ''
   });
@@ -48,6 +46,14 @@ export default function DoctorDirectoryTab() {
           specialtyId: 2,
           specialtyName: 'Neurology',
           qualifications: 'MBBS, MD (Neurology), PhD'
+        },
+        {
+          id: 3,
+          userId: 3,
+          doctorName: 'Dr. Elena Rostova',
+          specialtyId: 3,
+          specialtyName: 'Pediatrics',
+          qualifications: 'MD, FAAP, Pediatric Care Specialist'
         }
       ]);
     }
@@ -57,134 +63,237 @@ export default function DoctorDirectoryTab() {
     fetchDoctors();
   }, []);
 
-  const handleRegisterProfile = async (e) => {
-    e.preventDefault();
-    if (!formData.qualifications) {
-      setAlert({ type: 'error', text: 'Please enter doctor qualifications.' });
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/doctors`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: Number(formData.userId),
-          specialtyId: Number(formData.specialtyId),
-          qualifications: formData.qualifications
-        })
-      });
-
-      if (res.ok) {
-        setAlert({ type: 'success', text: '👨‍⚕️ Specialist Profile registered in PostgreSQL Database!' });
-        setFormData({ userId: 1, specialtyId: 1, qualifications: '' });
-        fetchDoctors();
-      } else {
-        const err = await res.json();
-        setAlert({ type: 'error', text: err.message || 'Failed to register profile.' });
-      }
-    } catch {
-      const sp = specialtiesList.find((s) => s.id === Number(formData.specialtyId));
-      setDoctors([
-        ...doctors,
-        {
-          id: doctors.length + 1,
-          userId: Number(formData.userId),
-          doctorName: `Dr. Specialist #${formData.userId}`,
-          specialtyId: Number(formData.specialtyId),
-          specialtyName: sp ? sp.name : 'General',
-          qualifications: formData.qualifications
-        }
-      ]);
-      setAlert({ type: 'success', text: '👨‍⚕️ Specialist Profile registered!' });
-      setFormData({ userId: 1, specialtyId: 1, qualifications: '' });
-    }
+  const handleOpenAddForm = () => {
+    setEditingDoctorId(null);
+    setFormData({
+      doctorName: '',
+      email: '',
+      password: 'DoctorPass123!',
+      specialtyId: 1,
+      qualifications: ''
+    });
+    setAlert(null);
+    setIsFormOpen(true);
   };
 
-  const handleStartEdit = (doctor) => {
+  const handleOpenEditForm = (doctor) => {
     setEditingDoctorId(doctor.id);
-    setEditFormData({
+    setFormData({
+      doctorName: doctor.doctorName || '',
+      email: '',
+      password: '',
       specialtyId: doctor.specialtyId || 1,
       qualifications: doctor.qualifications || ''
     });
+    setAlert(null);
+    setIsFormOpen(true);
   };
 
-  const handleSaveEdit = async (id) => {
-    try {
-      const res = await fetch(`${API_BASE}/doctors/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          specialtyId: Number(editFormData.specialtyId),
-          qualifications: editFormData.qualifications
-        })
-      });
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setEditingDoctorId(null);
+    setFormData({
+      doctorName: '',
+      email: '',
+      password: '',
+      specialtyId: 1,
+      qualifications: ''
+    });
+  };
 
-      if (res.ok) {
-        setAlert({ type: 'success', text: 'Profile updated in PostgreSQL database!' });
-        setEditingDoctorId(null);
-        fetchDoctors();
+  const handleSubmitForm = async (e) => {
+    e.preventDefault();
+    if (!formData.qualifications.trim()) {
+      setAlert({ type: 'error', text: 'Please enter doctor medical qualifications.' });
+      return;
+    }
+
+    if (editingDoctorId) {
+      // EDIT DOCTOR (PUT)
+      try {
+        const res = await fetch(`${API_BASE}/doctors/${editingDoctorId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            specialtyId: Number(formData.specialtyId),
+            qualifications: formData.qualifications
+          })
+        });
+
+        if (res.ok) {
+          setAlert({ type: 'success', text: '👨‍⚕️ Specialist doctor profile updated in database!' });
+          fetchDoctors();
+          handleCloseForm();
+        } else {
+          const err = await res.json();
+          setAlert({ type: 'error', text: err.message || 'Failed to update profile.' });
+        }
+      } catch {
+        const sp = specialtiesList.find((s) => s.id === Number(formData.specialtyId));
+        setDoctors(
+          doctors.map((d) =>
+            d.id === editingDoctorId
+              ? {
+                  ...d,
+                  specialtyId: Number(formData.specialtyId),
+                  specialtyName: sp ? sp.name : d.specialtyName,
+                  qualifications: formData.qualifications
+                }
+              : d
+          )
+        );
+        setAlert({ type: 'success', text: '👨‍⚕️ Specialist profile updated!' });
+        handleCloseForm();
       }
-    } catch {
-      setDoctors(
-        doctors.map((d) =>
-          d.id === id
-            ? {
-                ...d,
-                specialtyId: Number(editFormData.specialtyId),
-                specialtyName: specialtiesList.find((s) => s.id === Number(editFormData.specialtyId))?.name || d.specialtyName,
-                qualifications: editFormData.qualifications
-              }
-            : d
-        )
-      );
-      setEditingDoctorId(null);
-      setAlert({ type: 'success', text: 'Specialist profile updated!' });
+    } else {
+      // REGISTER NEW DOCTOR USER ACCOUNT & DOCTOR RECORD (POST)
+      if (!formData.doctorName.trim() || !formData.email.trim()) {
+        setAlert({ type: 'error', text: 'Please enter doctor name and email address.' });
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/doctors`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            doctorName: formData.doctorName.trim(),
+            email: formData.email.trim(),
+            password: formData.password || 'DoctorPass123!',
+            specialtyId: Number(formData.specialtyId),
+            qualifications: formData.qualifications.trim()
+          })
+        });
+
+        if (res.ok) {
+          const created = await res.json();
+          setAlert({
+            type: 'success',
+            text: `👨‍⚕️ ${created.doctorName || 'Doctor'} registered in Users & Doctors database! (User ID #${created.userId})`
+          });
+          fetchDoctors();
+          handleCloseForm();
+        } else {
+          const err = await res.json();
+          setAlert({ type: 'error', text: err.message || 'Failed to register new doctor.' });
+        }
+      } catch {
+        const sp = specialtiesList.find((s) => s.id === Number(formData.specialtyId));
+        const newDoc = {
+          id: doctors.length + 1,
+          userId: doctors.length + 1,
+          doctorName: formData.doctorName.startsWith('Dr.') ? formData.doctorName : `Dr. ${formData.doctorName}`,
+          specialtyId: Number(formData.specialtyId),
+          specialtyName: sp ? sp.name : 'General',
+          qualifications: formData.qualifications
+        };
+        setDoctors([...doctors, newDoc]);
+        setAlert({ type: 'success', text: `👨‍⚕️ ${newDoc.doctorName} registered successfully!` });
+        handleCloseForm();
+      }
     }
   };
 
   return (
     <div>
-      {/* Register New Specialist Profile Form */}
-      <form className="ds-form" onSubmit={handleRegisterProfile}>
-        <div className="ds-form-title">
-          <span>👨‍⚕️</span> Register New Specialist Doctor Profile
+      {/* Top Header & Register Button */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h3 style={{ margin: 0, color: 'var(--ds-navy-dark)', fontSize: '1.25rem', fontWeight: 700 }}>
+            👨‍⚕️ Specialist Doctors Roster ({doctors.length})
+          </h3>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: 'var(--ds-blue-muted)' }}>
+            Register new doctor user accounts and manage specialist profiles.
+          </p>
         </div>
+        <button
+          className="ds-btn ds-btn-coral"
+          onClick={isFormOpen ? handleCloseForm : handleOpenAddForm}
+        >
+          {isFormOpen ? '✖ Close Form' : '➕ Register New Doctor Account'}
+        </button>
+      </div>
 
-        {alert && (
-          <div className={`ds-alert ds-alert-${alert.type}`}>
-            {alert.type === 'success' ? '✅' : '⚠️'} {alert.text}
-          </div>
-        )}
+      {alert && (
+        <div className={`ds-alert ds-alert-${alert.type}`} style={{ marginBottom: 20 }}>
+          {alert.type === 'success' ? '✅' : '⚠️'} {alert.text}
+        </div>
+      )}
 
-        <div className="ds-form-row">
-          <div className="ds-form-group">
-            <label className="ds-label">User Account ID</label>
-            <input
-              type="number"
-              className="ds-input"
-              value={formData.userId}
-              onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-              min="1"
-            />
-          </div>
-
-          <div className="ds-form-group">
-            <label className="ds-label">Clinical Specialty</label>
-            <select
-              className="ds-select"
-              value={formData.specialtyId}
-              onChange={(e) => setFormData({ ...formData, specialtyId: e.target.value })}
+      {/* UNIFIED REGISTER / EDIT DOCTOR FORM */}
+      {isFormOpen && (
+        <form className="ds-form" onSubmit={handleSubmitForm} style={{ border: '2px solid var(--ds-navy-primary)' }}>
+          <div className="ds-form-title" style={{ justifyContent: 'space-between' }}>
+            <span>
+              {editingDoctorId ? '✏️ Edit Specialist Doctor Profile' : '👨‍⚕️ Register New Doctor User Account'}
+            </span>
+            <button
+              type="button"
+              onClick={handleCloseForm}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
             >
-              {specialtiesList.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              ✖
+            </button>
           </div>
 
-          <div className="ds-form-group" style={{ gridColumn: 'span 2' }}>
+          <div className="ds-form-row">
+            {!editingDoctorId && (
+              <>
+                <div className="ds-form-group">
+                  <label className="ds-label">Doctor Full Name</label>
+                  <input
+                    type="text"
+                    className="ds-input"
+                    placeholder="e.g. Dr. Sarah Jenkins"
+                    value={formData.doctorName}
+                    onChange={(e) => setFormData({ ...formData, doctorName: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="ds-form-group">
+                  <label className="ds-label">Doctor Email Address</label>
+                  <input
+                    type="email"
+                    className="ds-input"
+                    placeholder="e.g. sarah.jenkins@channelcenter.hospital"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="ds-form-group">
+                  <label className="ds-label">App Password</label>
+                  <input
+                    type="text"
+                    className="ds-input"
+                    placeholder="Password for doctor app login"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="ds-form-group">
+              <label className="ds-label">Clinical Specialty</label>
+              <select
+                className="ds-select"
+                value={formData.specialtyId}
+                onChange={(e) => setFormData({ ...formData, specialtyId: e.target.value })}
+              >
+                {specialtiesList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="ds-form-group" style={{ marginBottom: 20 }}>
             <label className="ds-label">Medical Qualifications & Degrees</label>
             <input
               type="text"
@@ -192,95 +301,78 @@ export default function DoctorDirectoryTab() {
               placeholder="e.g. MBBS, MD (Cardiology), FACC Board Certified"
               value={formData.qualifications}
               onChange={(e) => setFormData({ ...formData, qualifications: e.target.value })}
+              required
             />
           </div>
-        </div>
 
-        <button type="submit" className="ds-btn ds-btn-coral">
-          Register Specialist Profile
-        </button>
-      </form>
-
-      <h3 style={{ marginBottom: 16, color: 'var(--ds-navy-dark)' }}>
-        👨‍⚕️ Specialist Doctors Roster ({doctors.length})
-      </h3>
-
-      <div className="ds-grid">
-        {doctors.map((d) => (
-          <div key={d.id} className="ds-card">
-            {editingDoctorId === d.id ? (
-              /* Inline Edit Mode */
-              <div>
-                <h4 style={{ margin: '0 0 12px 0', color: 'var(--ds-navy-dark)' }}>
-                  Edit {d.doctorName}
-                </h4>
-
-                <div className="ds-form-group" style={{ marginBottom: 10 }}>
-                  <label className="ds-label">Specialty</label>
-                  <select
-                    className="ds-select"
-                    value={editFormData.specialtyId}
-                    onChange={(e) => setEditFormData({ ...editFormData, specialtyId: e.target.value })}
-                  >
-                    {specialtiesList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="ds-form-group" style={{ marginBottom: 14 }}>
-                  <label className="ds-label">Qualifications</label>
-                  <input
-                    type="text"
-                    className="ds-input"
-                    value={editFormData.qualifications}
-                    onChange={(e) => setEditFormData({ ...editFormData, qualifications: e.target.value })}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    className="ds-btn ds-btn-success"
-                    style={{ flex: 1 }}
-                    onClick={() => handleSaveEdit(d.id)}
-                  >
-                    Save Changes
-                  </button>
-                  <button
-                    className="ds-btn ds-btn-danger"
-                    style={{ flex: 1 }}
-                    onClick={() => setEditingDoctorId(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* Normal View Mode */
-              <div>
-                <div className="ds-card-header">
-                  <h4 className="ds-card-title">{d.doctorName}</h4>
-                  <span className="ds-badge ds-badge-approved">{d.specialtyName}</span>
-                </div>
-                <div style={{ fontSize: '0.9rem', color: '#486581', marginTop: 8, marginBottom: 14 }}>
-                  <strong>🎓 Qualifications:</strong> {d.qualifications}
-                </div>
-                <div style={{ paddingTop: 10, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#627d98', fontWeight: 600 }}>User ID: #{d.userId}</span>
-                  <button
-                    className="ds-btn ds-btn-navy"
-                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                    onClick={() => handleStartEdit(d)}
-                  >
-                    Edit Profile
-                  </button>
-                </div>
-              </div>
-            )}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button type="submit" className="ds-btn ds-btn-coral" style={{ flex: 1 }}>
+              {editingDoctorId ? '💾 Save Profile Changes' : '👨‍⚕️ Register Doctor & Create User Account'}
+            </button>
+            <button type="button" className="ds-btn ds-btn-danger" onClick={handleCloseForm}>
+              Cancel
+            </button>
           </div>
-        ))}
+        </form>
+      )}
+
+      {/* DOCTOR DIRECTORY TABLE */}
+      <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: 'var(--ds-shadow)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: 'var(--ds-navy-primary)' }}>
+              <th style={{ padding: '14px 18px', fontWeight: 700 }}>Doctor Name</th>
+              <th style={{ padding: '14px 18px', fontWeight: 700 }}>Specialty</th>
+              <th style={{ padding: '14px 18px', fontWeight: 700 }}>Qualifications & Credentials</th>
+              <th style={{ padding: '14px 18px', fontWeight: 700 }}>User ID</th>
+              <th style={{ padding: '14px 18px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {doctors.length === 0 ? (
+              <tr>
+                <td colSpan="5" style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>
+                  No doctors registered in database directory.
+                </td>
+              </tr>
+            ) : (
+              doctors.map((d, index) => (
+                <tr
+                  key={d.id}
+                  style={{
+                    borderBottom: '1px solid #f1f5f9',
+                    background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
+                    transition: 'background 0.15s ease'
+                  }}
+                >
+                  <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--ds-navy-dark)' }}>
+                    {d.doctorName}
+                  </td>
+                  <td style={{ padding: '14px 18px' }}>
+                    <span className="ds-badge ds-badge-approved">
+                      {d.specialtyName}
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px 18px', color: '#334155' }}>
+                    {d.qualifications || 'N/A'}
+                  </td>
+                  <td style={{ padding: '14px 18px', color: '#64748b', fontWeight: 600 }}>
+                    #{d.userId}
+                  </td>
+                  <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                    <button
+                      className="ds-btn ds-btn-navy"
+                      style={{ padding: '6px 14px', fontSize: '0.825rem' }}
+                      onClick={() => handleOpenEditForm(d)}
+                    >
+                      ✏️ Edit Doctor
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

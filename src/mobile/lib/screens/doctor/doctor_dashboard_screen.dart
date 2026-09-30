@@ -54,6 +54,38 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
           specialty: 'Cardiology',
           email: authUser?.email ?? 'doctor@channelcenter.hospital',
         );
+
+    // Resolve the real Doctor table ID from the backend
+    _syncRealDoctorIdFromDatabase();
+  }
+
+  /// Fetches the doctor list from the API and matches by email/name
+  /// to get the correct Doctors.Id (not Users.Id) for FK-safe operations.
+  Future<void> _syncRealDoctorIdFromDatabase() async {
+    try {
+      final doctorsList = await DoctorSchedulingService.getDoctors();
+      if (!mounted || doctorsList.isEmpty) return;
+
+      final authUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+      final userEmail = authUser?.email.toLowerCase().trim() ?? _profile.email.toLowerCase().trim();
+
+      DoctorProfile? matched;
+      for (final doc in doctorsList) {
+        if (doc.email.toLowerCase().trim() == userEmail ||
+            doc.name.toLowerCase().contains(_profile.name.toLowerCase().replaceAll('dr.', '').trim())) {
+          matched = doc;
+          break;
+        }
+      }
+
+      if (matched != null) {
+        setState(() {
+          _profile = matched!;
+        });
+        _loadUpcomingAppointments();
+        _loadDoctorLeaves();
+      }
+    } catch (_) {}
   }
 
   @override
@@ -130,10 +162,12 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
       );
 
       if (!mounted) return;
-      _leaveReasonController.clear();
-      _leaveStartDate = null;
-      _leaveEndDate = null;
-      _isSubmittingLeave = false;
+      setState(() {
+        _leaveReasonController.clear();
+        _leaveStartDate = null;
+        _leaveEndDate = null;
+        _isSubmittingLeave = false;
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -183,8 +217,10 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Doctor Portal Logout'),
-        content: const Text('Are you sure you want to log out of your Doctor account?'),
+        backgroundColor: Colors.white,
+        title: const Text('Doctor Portal Logout', style: TextStyle(color: Color(0xFF1E293B))),
+        content: const Text('Are you sure you want to log out of your Doctor account?',
+            style: TextStyle(color: Color(0xFF475569))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -206,7 +242,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: const Color(0xFFF1F5F9), // Light slate background
       appBar: AppBar(
         title: const Text('Doctor Portal'),
         backgroundColor: Colors.indigo,
@@ -233,28 +269,38 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
           _buildApplyLeaveTab(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentTabIndex,
-        selectedItemColor: Colors.indigo,
-        unselectedItemColor: Colors.grey.shade600,
-        onTap: (index) => setState(() => _currentTabIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month_outlined),
-            activeIcon: Icon(Icons.calendar_month),
-            label: 'Upcoming Appointments',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event_busy_outlined),
-            activeIcon: Icon(Icons.event_busy),
-            label: 'Apply Leave',
-          ),
-        ],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentTabIndex,
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.indigo,
+          unselectedItemColor: const Color(0xFF64748B),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+          elevation: 0,
+          onTap: (index) => setState(() => _currentTabIndex = index),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_month_outlined),
+              activeIcon: Icon(Icons.calendar_month),
+              label: 'Appointments',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.event_busy_outlined),
+              activeIcon: Icon(Icons.event_busy),
+              label: 'Apply Leave',
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // --- TAB 1: UPCOMING APPOINTMENTS DETAILS ---
+  // --- TAB 1: UPCOMING APPOINTMENTS ---
   Widget _buildUpcomingAppointmentsTab() {
     final activeSchedules = _schedules.where((s) => !s.isExpired).toList();
 
@@ -266,54 +312,64 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Doctor Profile Info Card
-            Card(
-              color: Colors.indigo.shade50,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Colors.indigo.shade200,
-                      child: const Icon(Icons.medical_services, color: Colors.indigo, size: 28),
+            // Doctor Profile Info — Clean Light Blue Container
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF), // Light indigo
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFC7D2FE)),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.indigo.shade600,
+                    child: const Icon(Icons.medical_services, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _profile.name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E1B4B), // Dark indigo text
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Specialty: ${_profile.specialty}',
+                          style: const TextStyle(
+                            color: Color(0xFF3730A3),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          _profile.email,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF4338CA)),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _profile.name,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Specialty: ${_profile.specialty}',
-                            style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w600, fontSize: 13),
-                          ),
-                          Text(
-                            _profile.email,
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),
 
             if (_appointmentsError != null) ...[
-              Card(
-                color: Colors.red.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Text(_appointmentsError!, style: const TextStyle(color: Colors.red)),
+              Container(
+                padding: const EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
                 ),
+                child: Text(_appointmentsError!, style: const TextStyle(color: Colors.red, fontSize: 13)),
               ),
               const SizedBox(height: 16),
             ],
@@ -324,31 +380,50 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                 child: Center(child: CircularProgressIndicator(color: Colors.indigo)),
               )
             else ...[
-              // Active Channel Session Cards
+              // Active Channel Sessions Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Active Channel Sessions',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.indigo),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
                   ),
-                  Chip(
-                    label: Text('${activeSchedules.length} Sessions'),
-                    backgroundColor: Colors.indigo.shade100,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0E7FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${activeSchedules.length} Sessions',
+                      style: const TextStyle(
+                        color: Colors.indigo,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
 
               if (activeSchedules.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Center(
-                      child: Text(
-                        'No active channel sessions currently scheduled.',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'No active channel sessions currently scheduled.',
+                      style: TextStyle(color: Color(0xFF475569), fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ),
                 )
@@ -357,37 +432,45 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
 
               const SizedBox(height: 24),
 
-              // Upcoming Patient Appointments List
+              // Upcoming Patient Appointments Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Upcoming Patient Appointments',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.indigo),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
                   ),
                   Text(
                     '${_patients.length} Patient(s)',
-                    style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
 
               if (_patients.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(Icons.event_available, size: 40, color: Colors.grey.shade400),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No upcoming patient appointments for your schedule.',
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Center(
+                    child: Column(
+                      children: const [
+                        Icon(Icons.event_available, size: 42, color: Color(0xFF94A3B8)),
+                        SizedBox(height: 8),
+                        Text(
+                          'No upcoming patient appointments for your schedule.',
+                          style: TextStyle(color: Color(0xFF475569), fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                      ],
                     ),
                   ),
                 )
@@ -398,99 +481,106 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   itemCount: _patients.length,
                   itemBuilder: (context, index) {
                     final patient = _patients[index];
-                    return Card(
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.indigo,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        'Queue #${patient.queueNumber}',
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                      ),
+                      padding: const EdgeInsets.all(14.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x0F0F172A), blurRadius: 6, offset: Offset(0, 2)),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.indigo,
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Apt #${patient.appointmentId}',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: patient.attendanceStatus == AttendanceStatus.present
-                                        ? Colors.green.shade100
-                                        : Colors.amber.shade100,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    patient.attendanceStatus.name.toUpperCase(),
-                                    style: TextStyle(
-                                      color: patient.attendanceStatus == AttendanceStatus.present ? Colors.green.shade800 : Colors.amber.shade900,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                    child: Text(
+                                      'Queue #${patient.queueNumber}',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              patient.patientName,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                const Icon(Icons.notes, size: 16, color: Colors.indigo),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    'Symptoms: ${patient.symptoms.isNotEmpty ? patient.symptoms : "Standard Consultation"}',
-                                    style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Apt #${patient.appointmentId}',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                icon: const Icon(Icons.check_circle_outline, size: 18),
-                                label: const Text('Update Attendance / Consultation'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.indigo,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                onPressed: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ConsultationAttendanceScreen(patient: patient),
-                                    ),
-                                  );
-                                  _loadUpcomingAppointments();
-                                },
+                                ],
                               ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: patient.attendanceStatus == AttendanceStatus.present
+                                      ? const Color(0xFFDCFCE7)
+                                      : const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  patient.attendanceStatus.name.toUpperCase(),
+                                  style: TextStyle(
+                                    color: patient.attendanceStatus == AttendanceStatus.present
+                                        ? const Color(0xFF15803D)
+                                        : const Color(0xFFB45309),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            patient.patientName,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.notes, size: 16, color: Colors.indigo),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Symptoms: ${patient.symptoms.isNotEmpty ? patient.symptoms : "Standard Consultation"}',
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.check_circle_outline, size: 18),
+                              label: const Text('Update Attendance / Consultation'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.indigo,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ConsultationAttendanceScreen(patient: patient),
+                                  ),
+                                );
+                                _loadUpcomingAppointments();
+                              },
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -503,65 +593,68 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   }
 
   Widget _buildScheduleCard(DoctorScheduleModel schedule) {
-    return Card(
-      elevation: 2,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
+      padding: const EdgeInsets.all(14.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.indigo.shade100),
+        border: Border.all(color: const Color(0xFFC7D2FE)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x0F0F172A), blurRadius: 6, offset: Offset(0, 2)),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  schedule.roomName,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: schedule.isSessionActive ? Colors.green : Colors.orange,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    schedule.statusText,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 16),
-            Text(
-              'Time: ${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _toggleSession(schedule),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: schedule.isSessionActive ? Colors.red : Colors.green,
-                  foregroundColor: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                schedule.roomName,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: schedule.isSessionActive ? Colors.green : Colors.orange,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  schedule.isSessionActive ? 'End Session' : 'Start Session',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  schedule.statusText,
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
+            ],
+          ),
+          const Divider(height: 16, color: Color(0xFFE2E8F0)),
+          Text(
+            'Time: ${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => _toggleSession(schedule),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: schedule.isSessionActive ? Colors.red : Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(
+                schedule.isSessionActive ? 'End Session' : 'Start Session',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // --- TAB 2: APPLY LEAVE SCREEN ---
+  // --- TAB 2: APPLY LEAVE ---
   Widget _buildApplyLeaveTab() {
     return RefreshIndicator(
       onRefresh: _loadDoctorLeaves,
@@ -571,96 +664,134 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Leave Application Form Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Apply for Doctor Leave',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.indigo),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Submit leave requests to temporarily pause patient bookings.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 16),
+            // Leave Application Form
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x0F0F172A), blurRadius: 6, offset: Offset(0, 2)),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Apply for Doctor Leave',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.indigo),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Submit leave requests to temporarily pause patient bookings.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 16),
 
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.calendar_today, size: 18),
-                            label: Text(_leaveStartDate == null
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.calendar_today, size: 18, color: Colors.indigo),
+                          label: Text(
+                            _leaveStartDate == null
                                 ? 'Start Date'
-                                : '${_leaveStartDate!.day}/${_leaveStartDate!.month}/${_leaveStartDate!.year}'),
-                            onPressed: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: DateTime.now().add(const Duration(days: 1)),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 90)),
-                              );
-                              if (picked != null) setState(() => _leaveStartDate = picked);
-                            },
+                                : '${_leaveStartDate!.day}/${_leaveStartDate!.month}/${_leaveStartDate!.year}',
+                            style: const TextStyle(color: Color(0xFF334155)),
                           ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            backgroundColor: Colors.white,
+                          ),
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now().add(const Duration(days: 1)),
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime.now().add(const Duration(days: 90)),
+                            );
+                            if (picked != null) setState(() => _leaveStartDate = picked);
+                          },
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.calendar_today, size: 18),
-                            label: Text(_leaveEndDate == null
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.calendar_today, size: 18, color: Colors.indigo),
+                          label: Text(
+                            _leaveEndDate == null
                                 ? 'End Date'
-                                : '${_leaveEndDate!.day}/${_leaveEndDate!.month}/${_leaveEndDate!.year}'),
-                            onPressed: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: DateTime.now().add(const Duration(days: 2)),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 90)),
-                              );
-                              if (picked != null) setState(() => _leaveEndDate = picked);
-                            },
+                                : '${_leaveEndDate!.day}/${_leaveEndDate!.month}/${_leaveEndDate!.year}',
+                            style: const TextStyle(color: Color(0xFF334155)),
                           ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            backgroundColor: Colors.white,
+                          ),
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now().add(const Duration(days: 2)),
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime.now().add(const Duration(days: 90)),
+                            );
+                            if (picked != null) setState(() => _leaveEndDate = picked);
+                          },
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _leaveReasonController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Reason for Leave',
-                        hintText: 'e.g. Medical Conference, Personal Leave',
-                        border: OutlineInputBorder(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _leaveReasonController,
+                    maxLines: 2,
+                    style: const TextStyle(color: Color(0xFF1E293B)),
+                    decoration: InputDecoration(
+                      labelText: 'Reason for Leave',
+                      labelStyle: const TextStyle(color: Color(0xFF64748B)),
+                      hintText: 'e.g. Medical Conference, Personal Leave',
+                      hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.indigo, width: 2),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: _isSubmittingLeave ? null : _submitLeaveRequest,
-                        child: _isSubmittingLeave
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                              )
-                            : const Text('Submit Leave Application', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
+                      onPressed: _isSubmittingLeave ? null : _submitLeaveRequest,
+                      child: _isSubmittingLeave
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('Submit Leave Application',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
 
@@ -673,21 +804,33 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             const SizedBox(height: 10),
 
             if (_leaveError != null)
-              Text(_leaveError!, style: const TextStyle(color: Colors.red))
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                ),
+                child: Text(_leaveError!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+              )
             else if (_isLoadingLeaves)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Center(child: CircularProgressIndicator(color: Colors.indigo)),
               )
             else if (_leaves.isEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Center(
-                    child: Text(
-                      'No previous leave applications recorded.',
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: const Center(
+                  child: Text(
+                    'No previous leave applications recorded.',
+                    style: TextStyle(color: Color(0xFF475569), fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                 ),
               )
@@ -698,22 +841,59 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                 itemCount: _leaves.length,
                 itemBuilder: (context, index) {
                   final item = _leaves[index];
-                  return Card(
+                  return Container(
                     margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      title: Text(
-                        '${item.startDate.day}/${item.startDate.month}/${item.startDate.year} - ${item.endDate.day}/${item.endDate.month}/${item.endDate.year}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(item.reason),
-                      trailing: Chip(
-                        label: Text(item.status.name.toUpperCase()),
-                        backgroundColor: item.status == LeaveStatus.approved
-                            ? Colors.green.shade100
-                            : item.status == LeaveStatus.rejected
-                                ? Colors.red.shade100
-                                : Colors.amber.shade100,
-                      ),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${item.startDate.day}/${item.startDate.month}/${item.startDate.year} - ${item.endDate.day}/${item.endDate.month}/${item.endDate.year}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(item.reason,
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF475569))),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: item.status == LeaveStatus.approved
+                                ? const Color(0xFFDCFCE7)
+                                : item.status == LeaveStatus.rejected
+                                    ? const Color(0xFFFEE2E2)
+                                    : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            item.status.name.toUpperCase(),
+                            style: TextStyle(
+                              color: item.status == LeaveStatus.approved
+                                  ? const Color(0xFF15803D)
+                                  : item.status == LeaveStatus.rejected
+                                      ? const Color(0xFFB91C1C)
+                                      : const Color(0xFFB45309),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },

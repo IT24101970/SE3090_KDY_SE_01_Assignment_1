@@ -64,10 +64,51 @@ public class DoctorSchedulingService : IDoctorSchedulingService
 
     public async Task<DoctorDto> CreateDoctorAsync(CreateDoctorDto dto)
     {
+        // If email is provided or UserId is 0, auto-register User in Users table with Doctor role
+        if ((dto.UserId <= 0 || !string.IsNullOrWhiteSpace(dto.Email)) && !string.IsNullOrWhiteSpace(dto.Email))
+        {
+            var cleanEmail = dto.Email.Trim().ToLower();
+            var rawPassword = string.IsNullOrWhiteSpace(dto.Password) ? "DoctorPass123!" : dto.Password.Trim();
+            var hashedPassword = ChannelCenter.API.Services.Auth.AuthService.HashPassword(rawPassword);
+
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == cleanEmail);
+            if (existingUser != null)
+            {
+                existingUser.Role = UserRole.Doctor;
+                existingUser.PasswordHash = hashedPassword;
+                existingUser.UpdatedAt = DateTime.UtcNow;
+                dto.UserId = existingUser.Id;
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                var docName = dto.DoctorName?.Trim();
+                if (string.IsNullOrWhiteSpace(docName)) docName = "Dr. Specialist";
+                if (!docName.StartsWith("Dr.", StringComparison.OrdinalIgnoreCase))
+                {
+                    docName = $"Dr. {docName}";
+                }
+
+                var newUser = new User
+                {
+                    FullName = docName,
+                    Email = cleanEmail,
+                    PasswordHash = hashedPassword,
+                    Role = UserRole.Doctor,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+                dto.UserId = newUser.Id;
+            }
+        }
+
         var doctor = new Doctor
         {
-            UserId = dto.UserId,
-            SpecialtyId = dto.SpecialtyId,
+            UserId = dto.UserId > 0 ? dto.UserId : 1,
+            SpecialtyId = dto.SpecialtyId > 0 ? dto.SpecialtyId : 1,
             Qualifications = dto.Qualifications,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -342,7 +383,9 @@ public class DoctorSchedulingService : IDoctorSchedulingService
 
         if (doctorId.HasValue)
         {
-            query = query.Where(l => l.DoctorId == doctorId.Value);
+            var doctorByUserId = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == doctorId.Value);
+            var actualDocId = doctorByUserId?.Id ?? doctorId.Value;
+            query = query.Where(l => l.DoctorId == doctorId.Value || l.DoctorId == actualDocId);
         }
 
         if (status.HasValue)
@@ -382,11 +425,43 @@ public class DoctorSchedulingService : IDoctorSchedulingService
 
     public async Task<DoctorLeaveDto> CreateLeaveAsync(CreateDoctorLeaveDto dto)
     {
+        var doctorExists = await _context.Doctors.AnyAsync(d => d.Id == dto.DoctorId);
+        if (!doctorExists)
+        {
+            var docByUserId = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == dto.DoctorId);
+            if (docByUserId != null)
+            {
+                dto.DoctorId = docByUserId.Id;
+            }
+            else
+            {
+                var firstDoc = await _context.Doctors.FirstOrDefaultAsync();
+                if (firstDoc != null)
+                {
+                    dto.DoctorId = firstDoc.Id;
+                }
+                else
+                {
+                    var newDoc = new Doctor
+                    {
+                        UserId = dto.DoctorId > 0 ? dto.DoctorId : 1,
+                        SpecialtyId = 1,
+                        Qualifications = "MD Specialist",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Doctors.Add(newDoc);
+                    await _context.SaveChangesAsync();
+                    dto.DoctorId = newDoc.Id;
+                }
+            }
+        }
+
         var leave = new DoctorLeave
         {
             DoctorId = dto.DoctorId,
-            StartDate = dto.StartDate,
-            EndDate = dto.EndDate,
+            StartDate = DateTime.SpecifyKind(dto.StartDate, DateTimeKind.Utc),
+            EndDate = DateTime.SpecifyKind(dto.EndDate, DateTimeKind.Utc),
             Reason = dto.Reason,
             Status = LeaveStatus.Pending,
             CreatedAt = DateTime.UtcNow,
