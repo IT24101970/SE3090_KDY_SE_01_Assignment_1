@@ -4,6 +4,7 @@ export default function Sidebar({ activeArea, onNavigate, onSignOut }) {
     ['patients', '👥', 'Patient Directory'],
     ['appointments', '📅', 'Appointments'],
     ['intake', '⚡', 'AI Intake Agent'],
+    ['triage', '🩺', 'Triage & Referrals'],
     ['workflows', '🛡️', 'Workflow Review'],
     ['audit', '📋', 'Audit Trail'],
     ['analytics', '📊', 'Safety Analytics'],

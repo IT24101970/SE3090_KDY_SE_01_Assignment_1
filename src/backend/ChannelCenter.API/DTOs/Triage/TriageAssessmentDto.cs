@@ -6,6 +6,9 @@ public class TriageAssessmentDto
 {
     public int Id { get; set; }
     public int AppointmentId { get; set; }
+    public string? PatientName { get; set; }
+    public string? DoctorName { get; set; }
+    public DateTime? AppointmentDate { get; set; }
     public string RawSymptoms { get; set; } = string.Empty;
     public int UrgencyScore { get; set; }
     public UrgencyLevel UrgencyLevel { get; set; }

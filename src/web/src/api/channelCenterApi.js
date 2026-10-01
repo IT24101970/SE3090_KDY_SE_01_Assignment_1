@@ -188,3 +188,11 @@ export const specialtiesApi = {
   list: () => apiRequest('/api/triage/specialties'),
 };
 
+export const referralApi = {
+  getAll: () => apiRequest('/api/triage/referrals'),
+  updateStatus: (id, status) => apiRequest(`/api/triage/referrals/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  }),
+};
+

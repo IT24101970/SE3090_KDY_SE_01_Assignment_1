@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/triage_models.dart';
 
 class TriageProvider with ChangeNotifier {
@@ -18,7 +19,7 @@ class TriageProvider with ChangeNotifier {
   final List<TriageAssessment> _history = [];
   List<TriageAssessment> get history => _history;
 
-  TriageProvider({this.baseUrl = 'http://localhost:5066/api'});
+  TriageProvider({String? baseUrl}) : baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
   Future<bool> submitIntakeAndProcessTriage({
     required int appointmentId,
@@ -32,6 +33,26 @@ class TriageProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // 1. Submit pre-consultation intake questionnaire if medical history / allergies provided
+      if (medicalHistory.isNotEmpty || allergies.isNotEmpty) {
+        try {
+          await http.post(
+            Uri.parse('$baseUrl/Triage/questionnaires'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'patientId': appointmentId,
+              'responsesData': jsonEncode({
+                'medicalHistory': medicalHistory,
+                'allergies': allergies,
+              }),
+            }),
+          ).timeout(const Duration(seconds: 4));
+        } catch (_) {
+          // Continue if questionnaire submission offline
+        }
+      }
+
+      // 2. Prepare local fallback assessment structure
       final maxRating = symptomList.fold<int>(1, (max, item) => item.severityRating > max ? item.severityRating : max);
       final rawLower = rawSymptoms.toLowerCase();
       final hasEmergency = rawLower.contains('chest pain') || rawLower.contains('shortness of breath') || rawLower.contains('stroke');
@@ -50,7 +71,7 @@ class TriageProvider with ChangeNotifier {
         specialtyName = 'Orthopedics';
       }
 
-      final newAssessment = TriageAssessment(
+      final fallbackAssessment = TriageAssessment(
         id: DateTime.now().millisecondsSinceEpoch % 10000,
         appointmentId: appointmentId,
         rawSymptoms: rawSymptoms,
@@ -62,6 +83,7 @@ class TriageProvider with ChangeNotifier {
         createdAt: DateTime.now().toIso8601String(),
       );
 
+      // 3. Submit Triage Assessment to backend
       try {
         final response = await http.post(
           Uri.parse('$baseUrl/Triage/assessments'),
@@ -71,16 +93,16 @@ class TriageProvider with ChangeNotifier {
             'rawSymptoms': rawSymptoms,
             'symptomList': symptomList.map((s) => s.toJson()).toList(),
           }),
-        ).timeout(const Duration(seconds: 3));
+        ).timeout(const Duration(seconds: 5));
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           final data = jsonDecode(response.body);
           _currentAssessment = TriageAssessment.fromJson(data);
         } else {
-          _currentAssessment = newAssessment;
+          _currentAssessment = fallbackAssessment;
         }
       } catch (_) {
-        _currentAssessment = newAssessment;
+        _currentAssessment = fallbackAssessment;
       }
 
       _history.insert(0, _currentAssessment!);
@@ -93,5 +115,22 @@ class TriageProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<void> fetchHistoryByAppointment(int appointmentId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/Triage/appointment/$appointmentId/history'),
+      ).timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(response.body);
+        _history = list.map((e) => TriageAssessment.fromJson(e)).toList();
+        if (_history.isNotEmpty) {
+          _currentAssessment = _history.first;
+        }
+        notifyListeners();
+      }
+    } catch (_) {}
   }
 }

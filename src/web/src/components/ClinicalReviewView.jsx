@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './ClinicalReviewView.css';
+import './PatientManagement/PatientManagement.css';
 import { TriageDetailModal } from './TriageDetailModal';
+import { referralApi } from '../api/channelCenterApi';
 
 const MOCK_ASSESSMENTS = [
   {
@@ -67,19 +69,53 @@ const MOCK_REFERRALS = [
 ];
 
 export function ClinicalReviewView() {
-  const [assessments] = useState(MOCK_ASSESSMENTS);
+  const [assessments, setAssessments] = useState(MOCK_ASSESSMENTS);
   const [referrals, setReferrals] = useState(MOCK_REFERRALS);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterUrgency, setFilterUrgency] = useState('ALL');
   const [filterSpecialty, setFilterSpecialty] = useState('ALL');
   const [selectedAssessment, setSelectedAssessment] = useState(null);
 
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const data = await referralApi.getAll();
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const loadedReferrals = data.map(r => ({
+            id: r.id,
+            triageId: r.triageId,
+            targetSpecialty: r.targetSpecialty,
+            status: r.status,
+          }));
+          const loadedAssessments = data
+            .filter(r => r.triageSummary)
+            .map(r => r.triageSummary);
+
+          setReferrals(loadedReferrals);
+          if (loadedAssessments.length > 0) {
+            setAssessments(loadedAssessments);
+          }
+        }
+      } catch (err) {
+        console.warn('Using mock clinical review data:', err);
+      }
+    }
+    loadData();
+    return () => { isMounted = false; };
+  }, []);
+
   const totalCount = assessments.length;
   const emergencyCount = assessments.filter(a => a.urgencyLevel?.toLowerCase() === 'emergency').length;
   const highCount = assessments.filter(a => a.urgencyLevel?.toLowerCase() === 'high').length;
   const avgScore = totalCount > 0 ? Math.round(assessments.reduce((acc, curr) => acc + curr.urgencyScore, 0) / totalCount) : 0;
 
-  const handleUpdateReferralStatus = (referralId, newStatus) => {
+  const handleUpdateReferralStatus = async (referralId, newStatus) => {
+    try {
+      await referralApi.updateStatus(referralId, newStatus);
+    } catch (err) {
+      console.warn('Failed to update referral status on backend:', err);
+    }
     setReferrals(prev => prev.map(r => r.id === referralId ? { ...r, status: newStatus } : r));
     if (selectedAssessment) {
       setSelectedAssessment(null);
@@ -99,10 +135,18 @@ export function ClinicalReviewView() {
 
   const getUrgencyBadgeClass = (level) => {
     switch (level?.toLowerCase()) {
-      case 'emergency': return 'urgency-badge emergency';
-      case 'high': return 'urgency-badge high';
-      case 'medium': return 'urgency-badge medium';
-      default: return 'urgency-badge low';
+      case 'emergency': return 'urgency-pill emergency';
+      case 'high': return 'urgency-pill high';
+      case 'medium': return 'urgency-pill medium';
+      default: return 'urgency-pill low';
+    }
+  };
+
+  const getReferralBadgeClass = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'assigned': return 'referral-pill assigned';
+      case 'reviewed': return 'referral-pill reviewed';
+      default: return 'referral-pill generated';
     }
   };
 
@@ -112,59 +156,67 @@ export function ClinicalReviewView() {
   };
 
   return (
-    <div className="clinical-container">
+    <div className="clinical-container pm-container">
       {/* Header */}
-      <div className="clinical-header">
-        <div className="clinical-title-section">
+      <div className="clinical-header pm-header">
+        <div className="clinical-title-section pm-header-titles">
+          <span className="eyebrow">COMPONENT 3 — TRIAGE & SPECIALIST MATCHING</span>
           <h1>Medical Triage & Specialist Matching</h1>
           <p>Clinical Review Board & AI Symptom Triage Assessment Monitor</p>
         </div>
-        <div className="live-badge">
-          <div className="live-pulse"></div>
-          AI Triage Agent Active
+        <div className="pm-header-actions">
+          <div className="live-badge">
+            <div className="live-pulse"></div>
+            AI Triage Agent Active
+          </div>
         </div>
       </div>
 
       {/* Metrics Row */}
-      <div className="metrics-grid">
-        <div className="metric-card">
-          <div className="metric-label">Total Intakes</div>
-          <div className="metric-value">{totalCount}</div>
+      <div className="pm-stats-grid">
+        <div className="pm-stat-card">
+          <div className="pm-stat-label">Total Intakes</div>
+          <div className="pm-stat-value">{totalCount}</div>
+          <div className="pm-stat-hint">Active clinical cases</div>
         </div>
-        <div className="metric-card">
-          <div className="metric-label">Emergency Alerts</div>
-          <div className="metric-value emergency">{emergencyCount}</div>
+        <div className="pm-stat-card">
+          <div className="pm-stat-label">Emergency Alerts</div>
+          <div className="pm-stat-value" style={{ color: 'var(--red)' }}>{emergencyCount}</div>
+          <div className="pm-stat-hint">Immediate action required</div>
         </div>
-        <div className="metric-card">
-          <div className="metric-label">High Priority</div>
-          <div className="metric-value high">{highCount}</div>
+        <div className="pm-stat-card">
+          <div className="pm-stat-label">High Priority</div>
+          <div className="pm-stat-value" style={{ color: 'var(--amber)' }}>{highCount}</div>
+          <div className="pm-stat-hint">Urgent specialist matching</div>
         </div>
-        <div className="metric-card">
-          <div className="metric-label">Avg Severity Index</div>
-          <div className="metric-value accent">{avgScore}/100</div>
+        <div className="pm-stat-card">
+          <div className="pm-stat-label">Avg Severity Index</div>
+          <div className="pm-stat-value" style={{ color: 'var(--blue)' }}>{avgScore}/100</div>
+          <div className="pm-stat-hint">Composite risk index</div>
         </div>
       </div>
 
       {/* Controls Bar */}
-      <div className="controls-bar">
-        <div className="search-box">
+      <div className="pm-toolbar">
+        <div className="pm-search-box" style={{ flex: 1, minWidth: '280px' }}>
+          <span className="pm-search-icon">🔍</span>
           <input
             type="text"
-            className="search-input"
+            className="pm-search-input"
             placeholder="Search symptoms, appointment ID, or specialty..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="filter-group">
-          <select className="filter-select" value={filterUrgency} onChange={(e) => setFilterUrgency(e.target.value)}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <select className="pm-select" value={filterUrgency} onChange={(e) => setFilterUrgency(e.target.value)}>
             <option value="ALL">All Urgency Levels</option>
             <option value="EMERGENCY">Emergency</option>
             <option value="HIGH">High</option>
             <option value="MEDIUM">Medium</option>
             <option value="LOW">Low</option>
           </select>
-          <select className="filter-select" value={filterSpecialty} onChange={(e) => setFilterSpecialty(e.target.value)}>
+          <select className="pm-select" value={filterSpecialty} onChange={(e) => setFilterSpecialty(e.target.value)}>
             <option value="ALL">All Specialties</option>
             <option value="CARDIOLOGY">Cardiology</option>
             <option value="NEUROLOGY">Neurology</option>
@@ -174,9 +226,9 @@ export function ClinicalReviewView() {
         </div>
       </div>
 
-      {/* Data Table */}
-      <div className="table-container">
-        <table className="triage-table">
+      {/* Data Table Card */}
+      <div className="pm-table-card">
+        <table className="pm-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -186,13 +238,13 @@ export function ClinicalReviewView() {
               <th>Score</th>
               <th>Matched Specialty</th>
               <th>Referral Status</th>
-              <th>Action</th>
+              <th style={{ textAlign: 'right' }}>Action</th>
             </tr>
           </thead>
           <tbody>
             {filteredAssessments.length === 0 ? (
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>
                   No triage records matched the selected filters.
                 </td>
               </tr>
@@ -201,8 +253,8 @@ export function ClinicalReviewView() {
                 const status = getReferralStatus(row.id);
                 return (
                   <tr key={row.id} onClick={() => setSelectedAssessment(row)}>
-                    <td>#{row.id}</td>
-                    <td>Appt #{row.appointmentId}</td>
+                    <td style={{ fontWeight: 700 }}>#{row.id}</td>
+                    <td>{row.patientName ? `${row.patientName} (#${row.appointmentId})` : `Appt #${row.appointmentId}`}</td>
                     <td style={{ maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {row.rawSymptoms}
                     </td>
@@ -212,16 +264,16 @@ export function ClinicalReviewView() {
                       </span>
                     </td>
                     <td style={{ fontWeight: 700 }}>{row.urgencyScore}/100</td>
-                    <td style={{ color: '#38bdf8', fontWeight: 600 }}>
+                    <td style={{ color: 'var(--blue)', fontWeight: 600 }}>
                       {row.recommendedSpecialty || 'General Medicine'}
                     </td>
                     <td>
-                      <span className={`status-badge ${status.toLowerCase()}`}>
+                      <span className={getReferralBadgeClass(status)}>
                         {status}
                       </span>
                     </td>
-                    <td>
-                      <button className="btn-action" onClick={(e) => { e.stopPropagation(); setSelectedAssessment(row); }}>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="outline-button" onClick={(e) => { e.stopPropagation(); setSelectedAssessment(row); }}>
                         Review
                       </button>
                     </td>

@@ -9,6 +9,7 @@ import DoctorSchedulingPage from './DoctorSchedulingPage';
 import PatientDirectoryTab from '../components/PatientManagement/PatientDirectoryTab';
 import AppointmentDirectoryTab from '../components/PatientManagement/AppointmentDirectoryTab';
 import IntakeAgentConsoleTab from '../components/PatientManagement/IntakeAgentConsoleTab';
+import { ClinicalReviewView } from '../components/ClinicalReviewView';
 import AdminRegisterTab from '../components/AdminRegisterTab';
 
 export default function AdminDashboardPage({ onSignOut }) {
@@ -38,6 +39,9 @@ export default function AdminDashboardPage({ onSignOut }) {
         {activeArea === 'intake' && (
           <IntakeAgentConsoleTab initialPatient={intakePatient} />
         )}
+
+        {/* Student 3: Medical Triage & Specialist Matching */}
+        {activeArea === 'triage' && <ClinicalReviewView />}
 
         {/* Student 4: Admin & Safety Workflows (unchanged) */}
         {activeArea === 'workflows' && <WorkflowReviewTab />}

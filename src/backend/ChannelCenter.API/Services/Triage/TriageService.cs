@@ -273,6 +273,43 @@ public class TriageService : ITriageService
         return result;
     }
 
+    private async Task<TriageAssessmentDto?> GetTriageSummaryAsync(int triageId)
+    {
+        var a = await _context.TriageAssessments
+            .Include(t => t.Appointment)
+                .ThenInclude(app => app!.Patient)
+            .Include(t => t.Appointment)
+                .ThenInclude(app => app!.Doctor)
+                    .ThenInclude(d => d!.User)
+            .FirstOrDefaultAsync(t => t.Id == triageId);
+        if (a == null) return null;
+
+        var symptomLogs = await _context.SymptomLogs
+            .Where(s => s.TriageId == a.Id)
+            .Select(s => new SymptomItemDto
+            {
+                SymptomKeyword = s.SymptomKeyword,
+                SeverityRating = s.SeverityRating,
+                DurationInDays = s.DurationInDays
+            }).ToListAsync();
+
+        return new TriageAssessmentDto
+        {
+            Id = a.Id,
+            AppointmentId = a.AppointmentId,
+            PatientName = a.Appointment?.Patient?.Name,
+            DoctorName = a.Appointment?.Doctor?.User?.FullName,
+            AppointmentDate = a.Appointment?.AppointmentDate,
+            RawSymptoms = a.RawSymptoms,
+            UrgencyScore = a.UrgencyScore,
+            UrgencyLevel = a.UrgencyLevel,
+            ReasoningTrace = a.ReasoningTrace,
+            RecommendedSpecialty = a.RecommendedSpecialty,
+            SymptomLogs = symptomLogs,
+            CreatedAt = a.CreatedAt
+        };
+    }
+
     public async Task<ReferralDto> CreateReferralAsync(CreateReferralDto dto)
     {
         var referral = new Referral
@@ -287,12 +324,15 @@ public class TriageService : ITriageService
         _context.Referrals.Add(referral);
         await _context.SaveChangesAsync();
 
+        var summary = await GetTriageSummaryAsync(referral.TriageId);
+
         return new ReferralDto
         {
             Id = referral.Id,
             TriageId = referral.TriageId,
             TargetSpecialty = referral.TargetSpecialty,
             Status = referral.Status,
+            TriageSummary = summary,
             CreatedAt = referral.CreatedAt
         };
     }
@@ -306,28 +346,41 @@ public class TriageService : ITriageService
         referral.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
+        var summary = await GetTriageSummaryAsync(referral.TriageId);
+
         return new ReferralDto
         {
             Id = referral.Id,
             TriageId = referral.TriageId,
             TargetSpecialty = referral.TargetSpecialty,
             Status = referral.Status,
+            TriageSummary = summary,
             CreatedAt = referral.CreatedAt
         };
     }
 
     public async Task<IEnumerable<ReferralDto>> GetAllReferralsAsync()
     {
-        return await _context.Referrals
-            .Select(r => new ReferralDto
+        var referrals = await _context.Referrals
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+        var result = new List<ReferralDto>();
+        foreach (var r in referrals)
+        {
+            var summary = await GetTriageSummaryAsync(r.TriageId);
+            result.Add(new ReferralDto
             {
                 Id = r.Id,
                 TriageId = r.TriageId,
                 TargetSpecialty = r.TargetSpecialty,
                 Status = r.Status,
+                TriageSummary = summary,
                 CreatedAt = r.CreatedAt
-            })
-            .ToListAsync();
+            });
+        }
+
+        return result;
     }
 
     public Task<IEnumerable<string>> GetSpecialtiesAsync()
