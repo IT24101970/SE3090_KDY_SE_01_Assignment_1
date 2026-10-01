@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/triage_provider.dart';
 import '../widgets/urgency_badge.dart';
+import '../widgets/ai_agent_pipeline_stepper.dart';
 import 'symptom_wizard_screen.dart';
 import 'triage_history_screen.dart';
 
@@ -63,6 +64,17 @@ class TriageStatusScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (provider.workflowSteps.isNotEmpty) ...[
+                  AiAgentPipelineStepper(
+                    steps: provider.workflowSteps,
+                    appointmentId: provider.lastCreatedAppointmentId ?? assessment.appointmentId,
+                    assignedDoctor: provider.assignedDoctorName,
+                    scheduleTime: provider.assignedScheduleTime,
+                    isSafetyVerified: provider.isSafetyVerified,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 // Urgency Card
                 Container(
                   width: double.infinity,

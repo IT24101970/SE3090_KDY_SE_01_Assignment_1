@@ -1,3 +1,21 @@
+enum WorkflowStepStatus { pending, inProgress, completed, failed }
+
+class AgentWorkflowStepProgress {
+  final int stepNumber;
+  final String title;
+  final String agentName;
+  WorkflowStepStatus status;
+  String? detail;
+
+  AgentWorkflowStepProgress({
+    required this.stepNumber,
+    required this.title,
+    required this.agentName,
+    this.status = WorkflowStepStatus.pending,
+    this.detail,
+  });
+}
+
 class SymptomItem {
   final String symptomKeyword;
   final int severityRating;
@@ -59,3 +77,4 @@ class TriageAssessment {
     createdAt: json['createdAt'] ?? '',
   );
 }
+

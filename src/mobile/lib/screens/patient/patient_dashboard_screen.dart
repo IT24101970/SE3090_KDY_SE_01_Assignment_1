@@ -8,6 +8,7 @@ import '../../providers/triage_provider.dart';
 import '../../providers/workflow_provider.dart';
 import '../../widgets/notification_bell_widget.dart';
 import '../../widgets/urgency_badge.dart';
+import '../../widgets/ai_agent_pipeline_stepper.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({super.key});
@@ -65,10 +66,11 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       final triageProvider = Provider.of<TriageProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final patientId = authProvider.currentUser?.patientId ?? authProvider.currentUser?.id ?? 1;
+      final authToken = authProvider.token;
 
-      final success = await triageProvider.submitIntakeAndProcessTriage(
-        appointmentId: patientId,
-        rawSymptoms: rawSymptoms,
+      final success = await triageProvider.executeCompleteMobileWorkflow(
+        patientId: patientId,
+        reasonForVisit: rawSymptoms,
         medicalHistory: _historyController.text.trim(),
         allergies: _allergiesController.text.trim(),
         symptomList: [
@@ -78,6 +80,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             durationInDays: 3,
           )
         ],
+        authToken: authToken,
       );
 
       if (!mounted) return;
@@ -90,12 +93,12 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Symptom intake submitted! AI Agents are processing your appointment.'),
+            content: Text('AI Agent workflow finished! Appointment registered & verified.'),
             backgroundColor: Colors.green,
           ),
         );
 
-        // Switch to Status tab
+        // Switch to Status tab to view live pipeline results
         setState(() => _currentTabIndex = 1);
         _refreshAppointmentsStatus();
       } else {
@@ -400,6 +403,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               style: TextStyle(fontSize: 12, color: Colors.white60),
             ),
             const SizedBox(height: 16),
+
+            // Live 5-Stage AI Agent Workflow Stepper Card
+            if (triageProvider.workflowSteps.isNotEmpty) ...[
+              AiAgentPipelineStepper(
+                steps: triageProvider.workflowSteps,
+                appointmentId: triageProvider.lastCreatedAppointmentId,
+                assignedDoctor: triageProvider.assignedDoctorName,
+                scheduleTime: triageProvider.assignedScheduleTime,
+                isSafetyVerified: triageProvider.isSafetyVerified,
+              ),
+              const SizedBox(height: 20),
+            ],
 
             // Active Intake Assessment Card (if submitted in current session)
             if (currentAssessment != null) ...[
