@@ -152,4 +152,27 @@ public class AppointmentsController : ControllerBase
 
         return Ok(data);
     }
+
+    // POST: api/appointments/{id}/assign-schedule
+    // Query/Body: { "recommendedSpecialty": "Cardiology" }
+    [HttpPost("{id:int}/assign-schedule")]
+    public async Task<IActionResult> AssignDoctorAndSchedule(int id, [FromBody] AssignScheduleDto dto)
+    {
+        var (success, errorMessage, data) = await _appointmentService.AssignDoctorAndScheduleAsync(id, dto.RecommendedSpecialty);
+        if (!success)
+        {
+            if (errorMessage != null && errorMessage.Contains("not found"))
+            {
+                return NotFound(new { message = errorMessage });
+            }
+            return BadRequest(new { message = errorMessage });
+        }
+
+        return Ok(data);
+    }
+}
+
+public class AssignScheduleDto
+{
+    public string RecommendedSpecialty { get; set; } = string.Empty;
 }

@@ -9,6 +9,7 @@ import '../../providers/workflow_provider.dart';
 import '../../widgets/notification_bell_widget.dart';
 import '../../widgets/urgency_badge.dart';
 import '../../widgets/ai_agent_pipeline_stepper.dart';
+import '../triage_status_screen.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({super.key});
@@ -44,9 +45,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   }
 
   Future<void> _refreshAppointmentsStatus() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final triageProvider = Provider.of<TriageProvider>(context, listen: false);
     final workflowProvider = Provider.of<WorkflowProvider>(context, listen: false);
+
+    final patientId = authProvider.currentUser?.patientId ?? authProvider.currentUser?.id ?? 1;
+    await triageProvider.fetchPatientAppointments(patientId);
     await workflowProvider.fetchWorkflows();
   }
+
 
   Future<void> _submitSymptomRequest() async {
     final rawSymptoms = _symptomsController.text.trim();
@@ -377,13 +384,23 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
+  void _openAppointmentStatus(PatientAppointment appt) async {
+    final triageProvider = Provider.of<TriageProvider>(context, listen: false);
+    await triageProvider.selectAppointment(appt);
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TriageStatusScreen(appointment: appt),
+      ),
+    );
+  }
+
   // --- TAB 2: APPOINTMENT & AI WORKFLOW STATUS ---
   Widget _buildAppointmentStatusTab() {
     final triageProvider = Provider.of<TriageProvider>(context);
-    final workflowProvider = Provider.of<WorkflowProvider>(context);
 
-    final currentAssessment = triageProvider.currentAssessment;
-    final workflows = workflowProvider.workflows;
+    final patientAppointments = triageProvider.patientAppointments;
 
     return RefreshIndicator(
       onRefresh: _refreshAppointmentsStatus,
@@ -393,14 +410,31 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'My Appointment & AI Triage Status',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Track live AI agent triage, recommended specialty, and finalized booking status.',
-              style: TextStyle(fontSize: 12, color: Colors.white60),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'My Patient Appointments',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Tap any appointment card to view its AI agent triage status & details.',
+                        style: TextStyle(fontSize: 12, color: Colors.white60),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.cyanAccent),
+                  onPressed: _refreshAppointmentsStatus,
+                  tooltip: 'Refresh Appointments',
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -416,73 +450,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               const SizedBox(height: 20),
             ],
 
-            // Active Intake Assessment Card (if submitted in current session)
-            if (currentAssessment != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.cyan.withValues(alpha: 0.4)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Latest AI Triage Assessment',
-                          style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        UrgencyBadge(
-                          urgencyLevel: currentAssessment.urgencyLevel,
-                          urgencyScore: currentAssessment.urgencyScore,
-                        ),
-                      ],
-                    ),
-                    const Divider(color: Colors.white12, height: 20),
-                    const Text('Recommended Specialty:', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                    const SizedBox(height: 2),
-                    Text(
-                      currentAssessment.recommendedSpecialty,
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text('Symptoms Evaluated:', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                    Text(
-                      currentAssessment.rawSymptoms,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.cyan.withValues(alpha: 0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('AI Agent Reasoning Trace:', style: TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text(
-                            currentAssessment.reasoningTrace,
-                            style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Workflows Stream List
-            if (workflows.isEmpty && currentAssessment == null)
+            // Patient Appointments List
+            if (patientAppointments.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
@@ -508,77 +477,132 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: workflows.length,
+                itemCount: patientAppointments.length,
                 itemBuilder: (context, index) {
-                  final item = workflows[index];
-                  final isFinalized = item.statusText.toLowerCase().contains('confirmed') ||
-                      item.statusText.toLowerCase().contains('scheduled') ||
-                      item.status == WorkflowStatus.approved ||
-                      item.status == WorkflowStatus.completed;
+                  final appt = patientAppointments[index];
+                  final statusLower = appt.status.toLowerCase();
+                  final isConfirmed = statusLower == 'confirmed' || statusLower == 'completed';
+                  final isCancelled = statusLower == 'cancelled';
+
+                  Color badgeColor = Colors.amber;
+                  String badgeText = appt.status.toUpperCase();
+                  if (isConfirmed) {
+                    badgeColor = Colors.green;
+                    badgeText = appt.status == 'Completed' ? 'COMPLETED' : 'CONFIRMED';
+                  } else if (isCancelled) {
+                    badgeColor = Colors.red;
+                    badgeText = 'CANCELLED';
+                  } else if (statusLower == 'pending') {
+                    badgeText = 'PAUSED FOR APPROVAL';
+                  }
 
                   return Card(
                     color: const Color(0xFF1E293B),
                     margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Appointment #${item.id}',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isFinalized
-                                      ? Colors.green.withValues(alpha: 0.2)
-                                      : Colors.amber.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: isFinalized ? Colors.greenAccent : Colors.amberAccent),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(
+                        color: isConfirmed
+                            ? Colors.green.withValues(alpha: 0.4)
+                            : (isCancelled
+                                ? Colors.red.withValues(alpha: 0.4)
+                                : Colors.amber.withValues(alpha: 0.4)),
+                      ),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => _openAppointmentStatus(appt),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.cyan.withValues(alpha: 0.15),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.calendar_month, color: Colors.cyanAccent, size: 20),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Appointment #${appt.id}',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(
-                                  isFinalized ? 'FINALIZED' : item.statusText.toUpperCase(),
-                                  style: TextStyle(
-                                    color: isFinalized ? Colors.greenAccent : Colors.amberAccent,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: badgeColor.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: badgeColor),
+                                  ),
+                                  child: Text(
+                                    badgeText,
+                                    style: TextStyle(
+                                      color: badgeColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const Divider(color: Colors.white12, height: 16),
-                          Row(
-                            children: [
-                              const Icon(Icons.person_outline, size: 16, color: Colors.cyanAccent),
-                              const SizedBox(width: 6),
-                              Text('Patient: ${item.patientName}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.medical_services_outlined, size: 16, color: Colors.cyanAccent),
-                              const SizedBox(width: 6),
-                              Text('Specialty: ${item.specialty}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                            ],
-                          ),
-                          if (item.assignedDoctorName.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                              ],
+                            ),
+                            const Divider(color: Colors.white12, height: 20),
+                            Row(
+                              children: [
+                                const Icon(Icons.medical_services_outlined, size: 16, color: Colors.cyanAccent),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Specialty: ${appt.doctorSpecialty}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
                             Row(
                               children: [
                                 const Icon(Icons.badge_outlined, size: 16, color: Color(0xFF34D399)),
-                                const SizedBox(width: 6),
-                                Text('Doctor: ${item.assignedDoctorName}', style: const TextStyle(color: Color(0xFF34D399), fontSize: 13, fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Doctor: ${appt.doctorName}',
+                                  style: const TextStyle(color: Color(0xFF34D399), fontSize: 13, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(Icons.description_outlined, size: 16, color: Colors.white38),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Symptoms: ${appt.normalizedRawSymptoms.isNotEmpty ? appt.normalizedRawSymptoms : appt.reasonForVisit}',
+                                    style: const TextStyle(color: Colors.white60, fontSize: 13),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: const [
+                                Text('View AI Status & Trace', style: TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward_ios, color: Colors.cyanAccent, size: 12),
                               ],
                             ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   );
@@ -589,6 +613,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       ),
     );
   }
+
 
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(

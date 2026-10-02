@@ -11,11 +11,13 @@ public class TriageService : ITriageService
 {
     private readonly ApplicationDbContext _context;
     private readonly IHttpClientFactory? _httpClientFactory;
+    private readonly Microsoft.Extensions.Configuration.IConfiguration? _configuration;
 
-    public TriageService(ApplicationDbContext context, IHttpClientFactory? httpClientFactory = null)
+    public TriageService(ApplicationDbContext context, IHttpClientFactory? httpClientFactory = null, Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
     {
         _context = context;
         _httpClientFactory = httpClientFactory;
+        _configuration = configuration;
     }
 
     public async Task<QuestionnaireResponseDto> SubmitQuestionnaireAsync(CreateQuestionnaireDto dto)
@@ -84,7 +86,9 @@ public class TriageService : ITriageService
                 {
                     Content = JsonContent.Create(payload)
                 };
-                requestMsg.Headers.Add("X-Internal-Service-Key", "ChannelCenterInternalKey2026_MustBeSecure!");
+                var internalKey = _configuration?["SafetyAuditor:InternalServiceKey"];
+                if (string.IsNullOrWhiteSpace(internalKey)) internalKey = "local-development-secret";
+                requestMsg.Headers.Add("X-Internal-Service-Key", internalKey);
 
                 var response = await client.SendAsync(requestMsg);
                 if (response.IsSuccessStatusCode)

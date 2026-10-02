@@ -163,10 +163,12 @@ public class AgentWorkflowService : IAgentWorkflowService
             workflow.Status = WorkflowStatus.Completed;
             workflow.CompletedAt = DateTime.UtcNow;
             workflow.RequiresHumanApproval = false;
+            await SyncAppointmentStatusAsync(workflow, AppointmentStatus.Confirmed);
         }
         else if (request.Decision == ApprovalDecision.Rejected)
         {
             workflow.Status = WorkflowStatus.Terminated;
+            await SyncAppointmentStatusAsync(workflow, AppointmentStatus.Cancelled, "Rejected by Clinical Admin during safety review.");
         }
         else if (request.Decision == ApprovalDecision.Revised)
         {
@@ -309,5 +311,34 @@ public class AgentWorkflowService : IAgentWorkflowService
         }
 
         return (true, null, await GetWorkflowByIdAsync(id));
+    }
+
+    private async Task SyncAppointmentStatusAsync(AgentWorkflow workflow, AppointmentStatus status, string? cancelReason = null)
+    {
+        Models.Appointment? appt = null;
+
+        if (workflow.AppointmentId.HasValue && workflow.AppointmentId.Value > 0)
+        {
+            appt = await _context.Appointments.FindAsync(workflow.AppointmentId.Value);
+        }
+
+        if (appt == null && !string.IsNullOrWhiteSpace(workflow.CorrelationId) && workflow.CorrelationId.StartsWith("appointment-"))
+        {
+            var parts = workflow.CorrelationId.Split('-');
+            if (parts.Length >= 2 && int.TryParse(parts[1], out var parsedId))
+            {
+                appt = await _context.Appointments.FindAsync(parsedId);
+            }
+        }
+
+        if (appt != null)
+        {
+            appt.Status = status;
+            if (cancelReason != null)
+            {
+                appt.CancelReason = cancelReason;
+            }
+            appt.UpdatedAt = DateTime.UtcNow;
+        }
     }
 }

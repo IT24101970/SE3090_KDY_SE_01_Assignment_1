@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/triage_models.dart';
 import '../providers/triage_provider.dart';
 import '../widgets/urgency_badge.dart';
 import '../widgets/ai_agent_pipeline_stepper.dart';
@@ -7,7 +8,9 @@ import 'symptom_wizard_screen.dart';
 import 'triage_history_screen.dart';
 
 class TriageStatusScreen extends StatelessWidget {
-  const TriageStatusScreen({super.key});
+  final PatientAppointment? appointment;
+
+  const TriageStatusScreen({super.key, this.appointment});
 
   @override
   Widget build(BuildContext context) {

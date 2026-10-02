@@ -51,6 +51,17 @@ public class AdminOverrideService : IAdminOverrideService
         workflow.Status = WorkflowStatus.Terminated;
         workflow.UpdatedAt = DateTime.UtcNow;
 
+        if (workflow.AppointmentId.HasValue && workflow.AppointmentId.Value > 0)
+        {
+            var appt = await _context.Appointments.FindAsync(workflow.AppointmentId.Value);
+            if (appt != null)
+            {
+                appt.Status = AppointmentStatus.Cancelled;
+                appt.CancelReason = request.Reason ?? "Cancelled by Admin Manual Override";
+                appt.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
         await _context.SaveChangesAsync();
 
         return (true, null, workflow.Id);
@@ -93,6 +104,17 @@ public class AdminOverrideService : IAdminOverrideService
 
         workflow.Status = WorkflowStatus.Completed;
         workflow.UpdatedAt = DateTime.UtcNow;
+
+        if (workflow.AppointmentId.HasValue && workflow.AppointmentId.Value > 0)
+        {
+            var appt = await _context.Appointments.FindAsync(workflow.AppointmentId.Value);
+            if (appt != null)
+            {
+                appt.DoctorId = request.TargetDoctorId;
+                appt.Status = AppointmentStatus.Confirmed;
+                appt.UpdatedAt = DateTime.UtcNow;
+            }
+        }
 
         await _context.SaveChangesAsync();
 

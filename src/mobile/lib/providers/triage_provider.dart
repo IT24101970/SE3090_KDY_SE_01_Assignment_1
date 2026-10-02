@@ -31,8 +31,12 @@ class TriageProvider with ChangeNotifier {
   final List<TriageAssessment> _history = [];
   List<TriageAssessment> get history => _history;
 
+  List<PatientAppointment> _patientAppointments = [];
+  List<PatientAppointment> get patientAppointments => _patientAppointments;
+
   List<AgentWorkflowStepProgress> _workflowSteps = [];
   List<AgentWorkflowStepProgress> get workflowSteps => _workflowSteps;
+
 
   TriageProvider({String? baseUrl}) : baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
@@ -114,12 +118,37 @@ class TriageProvider with ChangeNotifier {
 
         if (createRes.statusCode == 200 || createRes.statusCode == 201) {
           final data = jsonDecode(createRes.body);
-          appointmentId = data['id'] ?? (DateTime.now().millisecondsSinceEpoch % 10000);
+          appointmentId = data['id'] ?? 0;
         } else {
-          appointmentId = DateTime.now().millisecondsSinceEpoch % 10000;
+          String errDetail = 'Failed to register appointment in database (HTTP ${createRes.statusCode}).';
+          try {
+            final errJson = jsonDecode(createRes.body);
+            if (errJson['message'] != null) errDetail = errJson['message'];
+          } catch (_) {}
+
+          _workflowSteps[0].status = WorkflowStepStatus.failed;
+          _workflowSteps[0].detail = errDetail;
+          _errorMessage = errDetail;
+          _isLoading = false;
+          notifyListeners();
+          return false;
         }
-      } catch (_) {
-        appointmentId = DateTime.now().millisecondsSinceEpoch % 10000;
+      } catch (e) {
+        _workflowSteps[0].status = WorkflowStepStatus.failed;
+        _workflowSteps[0].detail = 'Network/Server connection error: $e';
+        _errorMessage = 'Failed to connect to backend: $e';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      if (appointmentId <= 0) {
+        _workflowSteps[0].status = WorkflowStepStatus.failed;
+        _workflowSteps[0].detail = 'Invalid appointment ID returned by database.';
+        _errorMessage = 'Invalid appointment ID returned by database.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
       }
 
       _lastCreatedAppointmentId = appointmentId;
@@ -224,28 +253,37 @@ class TriageProvider with ChangeNotifier {
       _workflowSteps[3].status = WorkflowStepStatus.inProgress;
       notifyListeners();
 
-      String docName = 'Dr. Sarah Jenkins';
-      if (_currentAssessment?.recommendedSpecialty == 'Neurology') docName = 'Dr. Michael Chen';
-      if (_currentAssessment?.recommendedSpecialty == 'Pediatrics') docName = 'Dr. Emily Rodriguez';
-      if (_currentAssessment?.recommendedSpecialty == 'Dermatology') docName = 'Dr. Aris Thorne';
-      if (_currentAssessment?.recommendedSpecialty == 'Orthopedics') docName = 'Dr. David Miller';
-
-      _assignedDoctorName = docName;
-      _assignedScheduleTime = 'Tomorrow at 09:30 AM (Room 101)';
+      String docName = 'Pending Doctor Assignment';
+      String schedDetail = 'Awaiting Session Schedule';
 
       try {
-        await http.patch(
-          Uri.parse('$baseUrl/Appointments/$appointmentId/status'),
+        final assignRes = await http.post(
+          Uri.parse('$baseUrl/Appointments/$appointmentId/assign-schedule'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            'status': 'Confirmed',
-            'notes': 'Assigned by Component 2 AI Agent for ${_currentAssessment?.recommendedSpecialty}'
+            'recommendedSpecialty': _currentAssessment?.recommendedSpecialty ?? 'General Medicine'
           }),
-        ).timeout(const Duration(seconds: 4));
+        ).timeout(const Duration(seconds: 5));
+
+        if (assignRes.statusCode == 200) {
+          final data = jsonDecode(assignRes.body);
+          if (data['doctorName'] != null && data['doctorName'] != 'Unknown') {
+            docName = data['doctorName'];
+          }
+          final room = data['roomName'] ?? 'Room TBD';
+          final statusStr = data['status'] ?? 'Confirmed';
+          final apptDateRaw = data['appointmentDate'];
+          final apptDateStr = apptDateRaw != null ? apptDateRaw.toString().split('T')[0] : 'Pending Date';
+          
+          schedDetail = '$apptDateStr • $room (Status: $statusStr)';
+        }
       } catch (_) {}
 
+      _assignedDoctorName = docName;
+      _assignedScheduleTime = schedDetail;
+
       _workflowSteps[3].status = WorkflowStepStatus.completed;
-      _workflowSteps[3].detail = 'Component 2 AI assigned doctor ($docName) & finalized schedule slot for Appointment #$appointmentId.';
+      _workflowSteps[3].detail = 'Component 2 AI assigned doctor ($docName) & finalized schedule slot ($schedDetail) for Appointment #$appointmentId.';
       notifyListeners();
 
       // ───────────────────────────────────────────────────────────────────────
@@ -311,5 +349,117 @@ class TriageProvider with ChangeNotifier {
       }
     } catch (_) {}
   }
+
+  Future<void> fetchPatientAppointments(int patientId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/Appointments/patient/$patientId/history'),
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        List<dynamic> items = [];
+        if (data is Map && data.containsKey('items')) {
+          items = data['items'];
+        } else if (data is List) {
+          items = data;
+        }
+        _patientAppointments = items.map((e) => PatientAppointment.fromJson(e)).toList();
+        _patientAppointments.sort((a, b) => b.id.compareTo(a.id));
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching patient appointments: $e');
+    }
+  }
+
+  Future<void> selectAppointment(PatientAppointment appt) async {
+    _lastCreatedAppointmentId = appt.id;
+    _assignedDoctorName = appt.doctorName;
+
+    final apptDateStr = appt.appointmentDate.isNotEmpty
+        ? appt.appointmentDate.split('T')[0]
+        : 'Scheduled Date';
+    _assignedScheduleTime = '$apptDateStr • ${appt.roomName} (Status: ${appt.status})';
+    _isSafetyVerified = appt.status.toLowerCase() == 'confirmed' || appt.status.toLowerCase() == 'completed';
+
+    await fetchHistoryByAppointment(appt.id);
+
+    if (_history.isNotEmpty) {
+      _currentAssessment = _history.first;
+    } else {
+      final symptoms = appt.normalizedRawSymptoms.isNotEmpty ? appt.normalizedRawSymptoms : appt.reasonForVisit;
+      final rawLower = symptoms.toLowerCase();
+      final isEmergency = rawLower.contains('chest pain') || rawLower.contains('shortness of breath');
+      final urgencyLevel = isEmergency ? 'Emergency' : (rawLower.contains('headache') ? 'Medium' : 'Low');
+      final urgencyScore = isEmergency ? 95 : (urgencyLevel == 'Medium' ? 50 : 25);
+
+      _currentAssessment = TriageAssessment(
+        id: appt.triageAssessmentId ?? (DateTime.now().millisecondsSinceEpoch % 10000),
+        appointmentId: appt.id,
+        rawSymptoms: symptoms,
+        urgencyScore: urgencyScore,
+        urgencyLevel: urgencyLevel,
+        reasoningTrace: '[Component 3 Triage Agent] Processed appointment #${appt.id}.\nSymptom Intake: "$symptoms".\nMatched Clinical Specialty: ${appt.doctorSpecialty}.\nAssigned Doctor: ${appt.doctorName}.\nStatus: ${appt.status}.',
+        recommendedSpecialty: appt.doctorSpecialty,
+        symptomLogs: [
+          SymptomItem(
+            symptomKeyword: symptoms.length > 30 ? symptoms.substring(0, 30) : symptoms,
+            severityRating: isEmergency ? 9 : 4,
+            durationInDays: 2,
+          )
+        ],
+        createdAt: appt.appointmentDate,
+      );
+    }
+
+    final isConfirmedOrCompleted = appt.status.toLowerCase() == 'confirmed' || appt.status.toLowerCase() == 'completed';
+    final isCancelled = appt.status.toLowerCase() == 'cancelled';
+
+    _workflowSteps = [
+      AgentWorkflowStepProgress(
+        stepNumber: 1,
+        title: 'Initial Appointment Registration',
+        agentName: 'System Intake Gateway',
+        status: WorkflowStepStatus.completed,
+        detail: 'Appointment #${appt.id} registered for Patient #${appt.patientId}',
+      ),
+      AgentWorkflowStepProgress(
+        stepNumber: 2,
+        title: 'Intake Symptom Decoding',
+        agentName: 'Component 1 Intake Agent',
+        status: WorkflowStepStatus.completed,
+        detail: 'Decoded raw symptoms: "${appt.reasonForVisit}"',
+      ),
+      AgentWorkflowStepProgress(
+        stepNumber: 3,
+        title: 'Medical Triage & Urgency Evaluation',
+        agentName: 'Component 3 Triage Agent',
+        status: WorkflowStepStatus.completed,
+        detail: 'Recommended specialty: ${appt.doctorSpecialty}. Urgency: ${_currentAssessment?.urgencyLevel}',
+      ),
+      AgentWorkflowStepProgress(
+        stepNumber: 4,
+        title: 'Doctor & Schedule Assignment',
+        agentName: 'Component 2 Scheduling Agent',
+        status: isCancelled ? WorkflowStepStatus.failed : (isConfirmedOrCompleted ? WorkflowStepStatus.completed : WorkflowStepStatus.inProgress),
+        detail: isConfirmedOrCompleted
+            ? 'Assigned Doctor: ${appt.doctorName} (${appt.roomName})'
+            : (isCancelled ? 'Appointment cancelled' : 'Doctor schedule pending approval'),
+      ),
+      AgentWorkflowStepProgress(
+        stepNumber: 5,
+        title: 'Safety Auditor & Verification',
+        agentName: 'Component 4 Safety Auditor',
+        status: isCancelled ? WorkflowStepStatus.failed : (isConfirmedOrCompleted ? WorkflowStepStatus.completed : WorkflowStepStatus.inProgress),
+        detail: isConfirmedOrCompleted
+            ? 'Safety audit verified. Appointment is locked and Confirmed.'
+            : (isCancelled ? 'Safety audit / admin rejected workflow' : 'Awaiting clinical admin verification'),
+      ),
+    ];
+
+    notifyListeners();
+  }
 }
+
 

@@ -11,6 +11,7 @@ public interface IAppointmentService
     Task<PagedResult<AppointmentResponseDto>> GetAppointmentsAsync(AppointmentFilterDto filter);
     Task<PagedResult<AppointmentResponseDto>> GetPatientAppointmentHistoryAsync(int patientId, AppointmentFilterDto filter);
     Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> UpdateAppointmentStatusAsync(int id, UpdateAppointmentStatusDto dto);
+    Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> AssignDoctorAndScheduleAsync(int id, string recommendedSpecialty);
     Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> CancelAppointmentAsync(int id, CancelAppointmentDto dto);
     Task<List<ChannelSlotDto>> GetAvailableChannelSlotsAsync(ChannelSlotFilterDto filter);
 }

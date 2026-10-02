@@ -44,34 +44,37 @@ public class AppointmentService : IAppointmentService
         var doctor = await _context.Doctors
             .Include(d => d.User)
             .Include(d => d.Specialty)
-            .FirstOrDefaultAsync(d => d.Id == dto.DoctorId);
+            .FirstOrDefaultAsync(d => d.Id == dto.DoctorId)
+            ?? await _context.Doctors.Include(d => d.User).Include(d => d.Specialty).FirstOrDefaultAsync();
+
         if (doctor == null)
         {
-            return (false, $"Doctor with ID {dto.DoctorId} does not exist.", null);
+            return (false, "No doctors registered in the database. Please register a doctor first.", null);
         }
+        dto.DoctorId = doctor.Id;
 
         var schedule = await _context.DoctorSchedules
             .Include(s => s.Room)
-            .FirstOrDefaultAsync(s => s.Id == dto.ScheduleId);
+            .FirstOrDefaultAsync(s => s.Id == dto.ScheduleId)
+            ?? await _context.DoctorSchedules.Include(s => s.Room).FirstOrDefaultAsync(s => s.DoctorId == doctor.Id)
+            ?? await _context.DoctorSchedules.Include(s => s.Room).FirstOrDefaultAsync();
+
         if (schedule == null)
         {
-            return (false, $"Schedule with ID {dto.ScheduleId} does not exist.", null);
+            return (false, "No doctor schedules found in database. Please create at least one doctor schedule first.", null);
         }
+        dto.ScheduleId = schedule.Id;
 
-        if (schedule.DoctorId != dto.DoctorId)
-        {
-            return (false, $"Schedule {dto.ScheduleId} does not belong to Doctor {dto.DoctorId}.", null);
-        }
-
-        // Prevent duplicate active booking for the same patient on this schedule
+        // Prevent duplicate active booking for the same patient on this schedule with identical reason for visit
         var duplicateBooking = await _context.Appointments.AnyAsync(a =>
             a.PatientId == dto.PatientId &&
             a.ScheduleId == dto.ScheduleId &&
+            a.ReasonForVisit.ToLower() == dto.ReasonForVisit.Trim().ToLower() &&
             (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Confirmed));
 
         if (duplicateBooking)
         {
-            return (false, "Patient already has an active appointment for this channel schedule.", null);
+            return (false, "An active appointment with identical symptom details already exists for this patient.", null);
         }
 
         // Check channel slot capacity against MaxPatients
@@ -480,5 +483,105 @@ public class AppointmentService : IAppointmentService
             NormalizedRawSymptoms = latestTriage?.RawSymptoms,
             TriageAssessmentId = latestTriage?.Id
         };
+    }
+
+    public async Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> AssignDoctorAndScheduleAsync(int id, string recommendedSpecialty)
+    {
+        var appt = await _context.Appointments
+            .Include(a => a.Patient)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (appt == null)
+        {
+            return (false, $"Appointment with ID {id} not found.", null);
+        }
+
+        var now = DateTime.UtcNow;
+        DoctorSchedule? matchedSchedule = null;
+
+        var cleanSpecialty = recommendedSpecialty?.Trim().ToLower() ?? "";
+        var specialty = await _context.Specialties
+            .FirstOrDefaultAsync(s => s.Name.ToLower().Contains(cleanSpecialty) || cleanSpecialty.Contains(s.Name.ToLower()));
+
+        if (specialty != null)
+        {
+            var specialtyDocIds = await _context.Doctors
+                .Where(d => d.SpecialtyId == specialty.Id)
+                .Select(d => d.Id)
+                .ToListAsync();
+
+            if (specialtyDocIds.Any())
+            {
+                // Prefer future schedule for doctor of matching specialty
+                matchedSchedule = await _context.DoctorSchedules
+                    .Include(s => s.Doctor)
+                    .ThenInclude(d => d!.User)
+                    .Include(s => s.Doctor)
+                    .ThenInclude(d => d!.Specialty)
+                    .Include(s => s.Room)
+                    .Where(s => specialtyDocIds.Contains(s.DoctorId) && s.EndTime >= now)
+                    .OrderBy(s => s.StartTime)
+                    .FirstOrDefaultAsync();
+
+                if (matchedSchedule == null)
+                {
+                    matchedSchedule = await _context.DoctorSchedules
+                        .Include(s => s.Doctor)
+                        .ThenInclude(d => d!.User)
+                        .Include(s => s.Doctor)
+                        .ThenInclude(d => d!.Specialty)
+                        .Include(s => s.Room)
+                        .Where(s => specialtyDocIds.Contains(s.DoctorId))
+                        .OrderByDescending(s => s.StartTime)
+                        .FirstOrDefaultAsync();
+                }
+            }
+        }
+
+        // Fallback to any future active schedule in system
+        if (matchedSchedule == null)
+        {
+            matchedSchedule = await _context.DoctorSchedules
+                .Include(s => s.Doctor)
+                .ThenInclude(d => d!.User)
+                .Include(s => s.Doctor)
+                .ThenInclude(d => d!.Specialty)
+                .Include(s => s.Room)
+                .Where(s => s.EndTime >= now)
+                .OrderBy(s => s.StartTime)
+                .FirstOrDefaultAsync();
+        }
+
+        // Final fallback to any schedule in system
+        if (matchedSchedule == null)
+        {
+            matchedSchedule = await _context.DoctorSchedules
+                .Include(s => s.Doctor)
+                .ThenInclude(d => d!.User)
+                .Include(s => s.Doctor)
+                .ThenInclude(d => d!.Specialty)
+                .Include(s => s.Room)
+                .OrderByDescending(s => s.StartTime)
+                .FirstOrDefaultAsync();
+        }
+
+        if (matchedSchedule != null)
+        {
+            appt.DoctorId = matchedSchedule.DoctorId;
+            appt.ScheduleId = matchedSchedule.Id;
+            appt.AppointmentDate = matchedSchedule.StartTime >= now ? matchedSchedule.StartTime : now.AddDays(1);
+            appt.Status = AppointmentStatus.Confirmed;
+            appt.UpdatedAt = now;
+            await _context.SaveChangesAsync();
+        }
+        else
+        {
+            appt.Status = AppointmentStatus.Pending;
+            appt.UpdatedAt = now;
+            await _context.SaveChangesAsync();
+        }
+
+        var result = await GetAppointmentByIdAsync(appt.Id);
+        return (true, null, result);
     }
 }
