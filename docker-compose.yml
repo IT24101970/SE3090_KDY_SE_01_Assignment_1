@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ── PostgreSQL Relational Database ──────────────────────────────────────────
   postgres:
@@ -15,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d channel_center_db"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d channel_center_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,6 +27,7 @@ services:
     restart: always
     ports:
       - "8001:8001"
+      - "8000:8001"
     environment:
       - INTERNAL_SERVICE_KEY=local-development-secret
       - PORT=8001
@@ -42,10 +41,11 @@ services:
     restart: always
     ports:
       - "5000:80"
+      - "5066:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=channel_center_db;Username=postgres;Password=postgres
+      - ConnectionStrings__DefaultConnection=Host=ep-frosty-resonance-azv5uod7.c-3.ap-southeast-1.aws.neon.tech;Database=neondb;Username=neondb_owner;Password=npg_GM82zHhOpUSs;SslMode=Require;
       - SafetyAuditor__BaseUrl=http://ai-service:8001
       - SafetyAuditor__InternalServiceKey=local-development-secret
     depends_on:
