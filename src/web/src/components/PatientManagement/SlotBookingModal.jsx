@@ -133,11 +133,6 @@ export default function SlotBookingModal({
     setReasonError('');
     setPatientError('');
 
-    if (!selectedPatientId) {
-      setPatientError('Please select a target patient for this appointment.');
-      setApiError('Please select a target patient from the dropdown above.');
-      return;
-    }
     if (!selectedSlot) {
       setApiError('Please click on an available session slot from the list above to select it.');
       return;
@@ -155,11 +150,12 @@ export default function SlotBookingModal({
     setSubmitting(true);
     try {
       const payload = {
-        patientId: Number(selectedPatientId),
+        patientId: selectedPatientId ? Number(selectedPatientId) : null,
         doctorId: selectedSlot.doctorId,
         scheduleId: selectedSlot.scheduleId,
         appointmentDate: selectedSlot.startTime,
         reasonForVisit: cleanReason,
+        skipAiWorkflows: true,
       };
 
       const result = await appointmentApi.create(payload);
@@ -196,10 +192,10 @@ export default function SlotBookingModal({
               </div>
             )}
 
-            {/* Step 1: Patient Picker */}
+            {/* Step 1: Patient Picker (Optional) */}
             <div style={{ marginBottom: '18px' }}>
               <label className="pm-label" htmlFor="booking-patient-select">
-                Target Patient <span className="required">*</span>
+                Target Patient <span style={{ color: 'var(--muted)', fontWeight: 'normal' }}>(Optional — leave blank for unregistered walk-in)</span>
               </label>
               {preselectedPatient ? (
                 <div style={{
@@ -232,7 +228,7 @@ export default function SlotBookingModal({
                     }}
                     disabled={submitting}
                   >
-                    <option value="">-- Choose registered patient --</option>
+                    <option value="">-- Unregistered / Walk-in Patient --</option>
                     {patients.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} (NIC: {p.nic}, Phone: {p.phoneNumber})

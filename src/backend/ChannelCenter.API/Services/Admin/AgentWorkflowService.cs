@@ -58,13 +58,58 @@ public class AgentWorkflowService : IAgentWorkflowService
     {
         var workflow = await _context.AgentWorkflows
             .AsNoTracking()
-            .Include(w => w.AuditLogs)
             .FirstOrDefaultAsync(w => w.Id == id);
 
         if (workflow == null)
         {
             return null;
         }
+
+        // Retrieve all sibling workflows belonging to the same process
+        var relatedWorkflows = new List<AgentWorkflow>();
+        if (workflow.AppointmentId.HasValue && workflow.AppointmentId.Value > 0)
+        {
+            relatedWorkflows = await _context.AgentWorkflows
+                .AsNoTracking()
+                .Include(w => w.AuditLogs)
+                .Where(w => w.AppointmentId == workflow.AppointmentId.Value)
+                .ToListAsync();
+        }
+        else if (!string.IsNullOrWhiteSpace(workflow.CorrelationId))
+        {
+            var rootCorr = workflow.CorrelationId.Split('-')[0];
+            relatedWorkflows = await _context.AgentWorkflows
+                .AsNoTracking()
+                .Include(w => w.AuditLogs)
+                .Where(w => w.CorrelationId.StartsWith(rootCorr))
+                .ToListAsync();
+        }
+
+        if (!relatedWorkflows.Any(w => w.Id == workflow.Id))
+        {
+            var singleWf = await _context.AgentWorkflows
+                .AsNoTracking()
+                .Include(w => w.AuditLogs)
+                .FirstOrDefaultAsync(w => w.Id == workflow.Id);
+            if (singleWf != null) relatedWorkflows.Add(singleWf);
+        }
+
+        var aggregatedLogs = relatedWorkflows
+            .SelectMany(w => w.AuditLogs)
+            .OrderByDescending(a => a.CreatedAt)
+            .Select(a => new WorkflowAuditResponseDto
+            {
+                Id = a.Id,
+                AgentName = a.AgentName,
+                ToolCalled = a.ToolCalled,
+                ToolOutput = a.ToolOutput,
+                StepName = a.StepName,
+                CorrelationId = a.CorrelationId,
+                ContractVersion = a.ContractVersion,
+                Outcome = a.Outcome,
+                DurationMs = a.DurationMs,
+                CreatedAt = a.CreatedAt
+            }).ToList();
 
         return new AgentWorkflowResponseDto
         {
@@ -84,21 +129,7 @@ public class AgentWorkflowService : IAgentWorkflowService
             CompletedAt = workflow.CompletedAt,
             SafeFailedAt = workflow.SafeFailedAt,
             CreatedAt = workflow.CreatedAt,
-            AuditLogs = workflow.AuditLogs
-                .OrderByDescending(a => a.CreatedAt)
-                .Select(a => new WorkflowAuditResponseDto
-                {
-                    Id = a.Id,
-                    AgentName = a.AgentName,
-                    ToolCalled = a.ToolCalled,
-                    ToolOutput = a.ToolOutput,
-                    StepName = a.StepName,
-                    CorrelationId = a.CorrelationId,
-                    ContractVersion = a.ContractVersion,
-                    Outcome = a.Outcome,
-                    DurationMs = a.DurationMs,
-                    CreatedAt = a.CreatedAt
-                }).ToList()
+            AuditLogs = aggregatedLogs
         };
     }
 
@@ -147,44 +178,76 @@ public class AgentWorkflowService : IAgentWorkflowService
             return (false, $"Cannot make approval decisions on a workflow that is already {workflow.Status}.", null);
         }
 
-        var approval = new AdminApproval
+        // Aggregate all sibling workflows belonging to the exact same process
+        var relatedWorkflows = new List<AgentWorkflow>();
+        if (workflow.AppointmentId.HasValue && workflow.AppointmentId.Value > 0)
         {
-            WorkflowId = id,
-            AdminUserId = adminUserId,
-            Decision = request.Decision,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        _context.AdminApprovals.Add(approval);
-
-        if (request.Decision == ApprovalDecision.Approved)
-        {
-            workflow.Status = WorkflowStatus.Completed;
-            workflow.CompletedAt = DateTime.UtcNow;
-            workflow.RequiresHumanApproval = false;
-            await SyncAppointmentStatusAsync(workflow, AppointmentStatus.Confirmed);
+            relatedWorkflows = await _context.AgentWorkflows
+                .Where(w => w.AppointmentId == workflow.AppointmentId.Value)
+                .ToListAsync();
         }
-        else if (request.Decision == ApprovalDecision.Rejected)
+        else if (!string.IsNullOrWhiteSpace(workflow.CorrelationId))
         {
-            workflow.Status = WorkflowStatus.Terminated;
-            await SyncAppointmentStatusAsync(workflow, AppointmentStatus.Cancelled, "Rejected by Clinical Admin during safety review.");
-        }
-        else if (request.Decision == ApprovalDecision.Revised)
-        {
-            workflow.Status = WorkflowStatus.PausedForApproval;
+            var rootCorr = workflow.CorrelationId.Split('-')[0];
+            relatedWorkflows = await _context.AgentWorkflows
+                .Where(w => w.CorrelationId.StartsWith(rootCorr))
+                .ToListAsync();
         }
 
-        workflow.UpdatedAt = DateTime.UtcNow;
+        if (!relatedWorkflows.Any(w => w.Id == workflow.Id))
+        {
+            relatedWorkflows.Add(workflow);
+        }
+
+        AdminApproval? primaryApproval = null;
+
+        foreach (var item in relatedWorkflows)
+        {
+            var approval = new AdminApproval
+            {
+                WorkflowId = item.Id,
+                AdminUserId = adminUserId,
+                Decision = request.Decision,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.AdminApprovals.Add(approval);
+            if (item.Id == workflow.Id)
+            {
+                primaryApproval = approval;
+            }
+
+            if (request.Decision == ApprovalDecision.Approved)
+            {
+                item.Status = WorkflowStatus.Completed;
+                item.CompletedAt = DateTime.UtcNow;
+                item.RequiresHumanApproval = false;
+                await SyncAppointmentStatusAsync(item, AppointmentStatus.Confirmed);
+            }
+            else if (request.Decision == ApprovalDecision.Rejected)
+            {
+                item.Status = WorkflowStatus.Terminated;
+                item.RequiresHumanApproval = false;
+                await SyncAppointmentStatusAsync(item, AppointmentStatus.Cancelled, "Rejected by Clinical Admin during safety review.");
+            }
+            else if (request.Decision == ApprovalDecision.Revised)
+            {
+                item.Status = WorkflowStatus.PausedForApproval;
+            }
+
+            item.UpdatedAt = DateTime.UtcNow;
+        }
+
         await _context.SaveChangesAsync();
 
         var responseDto = new WorkflowApprovalResponseDto
         {
-            Id = approval.Id,
+            Id = primaryApproval?.Id ?? 0,
             WorkflowId = workflow.Id,
-            Decision = approval.Decision,
+            Decision = request.Decision,
             UpdatedWorkflowStatus = workflow.Status,
-            ProcessedAt = approval.CreatedAt
+            ProcessedAt = DateTime.UtcNow
         };
 
         return (true, null, responseDto);

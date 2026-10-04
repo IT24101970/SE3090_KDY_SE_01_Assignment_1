@@ -78,6 +78,41 @@ class TriageStatusScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                 ],
 
+                if (provider.assignedDoctorName == 'Pending Doctor Assignment' || !provider.isSafetyVerified) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.amberAccent),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text(
+                                'No valid schedules currently available',
+                                style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Your appointment is registered and paused. You will receive a notification as soon as a clinical admin assigns a slot.',
+                                style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 // Urgency Card
                 Container(
                   width: double.infinity,

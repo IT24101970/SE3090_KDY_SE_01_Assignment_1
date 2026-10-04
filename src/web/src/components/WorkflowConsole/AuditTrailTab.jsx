@@ -4,7 +4,7 @@ import { formatDate } from './workflowConsoleUtils';
 import StructuredPayloadViewer from './StructuredPayloadViewer';
 import './WorkflowConsole.css';
 
-export default function AuditTrailTab() {
+export default function AuditTrailTab({ hideHeader = false }) {
     const [logs, setLogs] = useState([]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
@@ -56,19 +56,21 @@ export default function AuditTrailTab() {
     }), [logs]);
 
     return (
-        <div className="wc-container">
-            <header className="wc-header">
-                <div className="wc-header-titles">
-                    <p className="wc-eyebrow">Governance / Audit trail</p>
-                    <h1>Audit trail</h1>
-                    <p>Chronological evidence log of every agent execution, tool call, and admin decision.</p>
-                </div>
-                <div className="wc-header-actions">
-                    <button className="wc-btn-sm outline" onClick={fetchAuditLogs} disabled={loading}>
-                        🔄 Refresh Logs
-                    </button>
-                </div>
-            </header>
+        <div className={hideHeader ? 'wc-embedded' : 'wc-container'}>
+            {!hideHeader && (
+                <header className="wc-header">
+                    <div className="wc-header-titles">
+                        <p className="wc-eyebrow">Governance / Audit trail</p>
+                        <h1>Audit trail</h1>
+                        <p>Chronological evidence log of every agent execution, tool call, and admin decision.</p>
+                    </div>
+                    <div className="wc-header-actions">
+                        <button className="wc-btn-sm outline" onClick={fetchAuditLogs} disabled={loading}>
+                            🔄 Refresh Logs
+                        </button>
+                    </div>
+                </header>
+            )}
 
             {/* KPI Stat Cards */}
             <div className="wc-stats-grid">

@@ -20,7 +20,7 @@ function Metric({ label, value, detail, tone }) {
     );
 }
 
-export default function WorkflowReviewTab() {
+export default function WorkflowReviewTab({ hideHeader = false }) {
     const [workflows, setWorkflows] = useState([]);
     const [selected, setSelected] = useState(null);
     const [filter, setFilter] = useState('All');
@@ -43,27 +43,96 @@ export default function WorkflowReviewTab() {
         Promise.resolve().then(loadWorkflows);
     }, []);
 
-    const filtered = useMemo(() => workflows.filter((item) => (filter === 'All' || statusLabels[item.status] === filter) && `${item.id} ${item.objective} ${item.agent}`.toLowerCase().includes(search.toLowerCase())), [filter, search, workflows]);
+    // Group workflows by process key (e.g., appointmentId or root correlationId)
+    const processes = useMemo(() => {
+        const groups = {};
+
+        workflows.forEach((item) => {
+            let processKey = `wf-${item.id}`;
+            if (item.appointmentId && item.appointmentId > 0) {
+                processKey = `appt-${item.appointmentId}`;
+            } else if (item.correlationId && item.correlationId.startsWith('appointment-')) {
+                const parts = item.correlationId.split('-');
+                if (parts[1]) processKey = `appt-${parts[1]}`;
+            } else if (item.correlationId) {
+                const rootCorr = item.correlationId.split('-')[0];
+                if (rootCorr) processKey = `corr-${rootCorr}`;
+            }
+
+            if (!groups[processKey]) {
+                groups[processKey] = {
+                    processKey,
+                    id: item.id,
+                    objective: item.objective,
+                    appointmentId: item.appointmentId,
+                    items: [item],
+                    status: item.status,
+                    risk: item.risk || 'Standard',
+                    requiresHumanApproval: item.requiresHumanApproval || false,
+                    agentsSet: new Set([item.agent || 'Workflow Agent']),
+                    createdAt: item.createdAt,
+                };
+            } else {
+                const g = groups[processKey];
+                g.items.push(item);
+                if (item.agent) g.agentsSet.add(item.agent);
+
+                const isReviewable = (s) => s === 'PausedForApproval' || s === 'SafeFailed' || s === 1 || s === 4;
+                if (isReviewable(item.status) && !isReviewable(g.status)) {
+                    g.id = item.id;
+                    g.status = item.status;
+                }
+
+                const riskHierarchy = { emergency: 4, high: 3, standard: 2, low: 1 };
+                const currentRiskVal = riskHierarchy[(g.risk || '').toLowerCase()] || 2;
+                const itemRiskVal = riskHierarchy[(item.risk || '').toLowerCase()] || 2;
+                if (itemRiskVal > currentRiskVal) {
+                    g.risk = item.risk;
+                }
+
+                if (item.requiresHumanApproval) {
+                    g.requiresHumanApproval = true;
+                }
+
+                if (new Date(item.createdAt) < new Date(g.createdAt)) {
+                    g.createdAt = item.createdAt;
+                }
+            }
+        });
+
+        return Object.values(groups).map((g) => ({
+            ...g,
+            agentPipeline: Array.from(g.agentsSet).join(' → '),
+            subCount: g.items.length
+        }));
+    }, [workflows]);
 
     const isReviewable = (s) => s === 'PausedForApproval' || s === 'SafeFailed' || s === 1 || s === 4;
 
+    const filtered = useMemo(() => processes.filter((proc) => (filter === 'All' || statusLabels[proc.status] === filter) && `${proc.id} ${proc.objective} ${proc.agentPipeline}`.toLowerCase().includes(search.toLowerCase())), [filter, search, processes]);
+
     const counts = {
-        paused: workflows.filter((x) => isReviewable(x.status)).length,
-        running: workflows.filter((x) => x.status === 'Running' || x.status === 0).length,
-        completed: workflows.filter((x) => x.status === 'Completed' || x.status === 2).length,
-        terminated: workflows.filter((x) => x.status === 'Terminated' || x.status === 3).length
+        paused: processes.filter((x) => isReviewable(x.status)).length,
+        running: processes.filter((x) => x.status === 'Running' || x.status === 0).length,
+        completed: processes.filter((x) => x.status === 'Completed' || x.status === 2).length,
+        terminated: processes.filter((x) => x.status === 'Terminated' || x.status === 3).length,
+        emergency: processes.filter((x) => (x.risk || '').toLowerCase() === 'emergency' || (x.risk || '').toLowerCase() === 'high' || x.requiresHumanApproval).length
     };
 
     const applyDecision = async () => {
         try {
+            const targetIds = selected.subItemIds || [selected.id];
             const response = await workflowApi.decide(selected.id, decision);
             const updatedStatus = response.updatedWorkflowStatus;
-            setWorkflows((items) => items.map((item) => item.id === selected.id ? {
+            
+            setWorkflows((items) => items.map((item) => targetIds.includes(item.id) || item.id === selected.id ? {
                 ...item,
-                status: updatedStatus
+                status: updatedStatus,
+                requiresHumanApproval: updatedStatus === 'PausedForApproval'
             } : item));
+            
             setSelected((item) => ({ ...item, status: updatedStatus }));
-            setNotice(`Decision recorded: ${decision.toLowerCase()}.`);
+            setNotice(`Decision recorded: ${decision.toLowerCase()} applied to whole process.`);
             setDecision(null);
         } catch (requestError) {
             setNotice(requestError.message);
@@ -71,17 +140,19 @@ export default function WorkflowReviewTab() {
     };
 
     return (
-        <div className="wc-container">
-            <header className="wc-header">
-                <div className="wc-header-titles">
-                    <p className="wc-eyebrow">Admin workspace / Connected API</p>
-                    <h1>Workflow review</h1>
-                    <p>Monitor Safety Auditor decisions before they reach the care team.</p>
-                </div>
-                <div className="wc-header-actions">
-                    <button className="wc-btn outline" onClick={loadWorkflows}>↻ Refresh</button>
-                </div>
-            </header>
+        <div className={hideHeader ? 'wc-embedded' : 'wc-container'}>
+            {!hideHeader && (
+                <header className="wc-header">
+                    <div className="wc-header-titles">
+                        <p className="wc-eyebrow">Admin workspace / Connected API</p>
+                        <h1>Workflow review</h1>
+                        <p>Monitor Safety Auditor decisions before they reach the care team.</p>
+                    </div>
+                    <div className="wc-header-actions">
+                        <button className="wc-btn outline" onClick={loadWorkflows}>↻ Refresh</button>
+                    </div>
+                </header>
+            )}
 
             {notice && (
                 <div className="wc-alert success" role="status">
@@ -101,7 +172,7 @@ export default function WorkflowReviewTab() {
                 <div className="wc-card-header">
                     <div>
                         <h2>Approval queue</h2>
-                        <p>Structured agent work, never raw model reasoning.</p>
+                        <p>Structured agent work, consolidated by clinical process.</p>
                     </div>
                     <span className="wc-live-pill"><span className="wc-live-dot" /> LIVE</span>
                 </div>
@@ -115,7 +186,7 @@ export default function WorkflowReviewTab() {
                                 className="wc-search-input"
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Search workflow, objective or agent"
+                                placeholder="Search process, objective or agent"
                             />
                         </div>
                         <select
@@ -149,49 +220,53 @@ export default function WorkflowReviewTab() {
                 ) : filtered.length === 0 ? (
                     <div className="wc-empty-state">
                         <div className="icon">📋</div>
-                        <h3>No workflows found</h3>
-                        <p>There are no workflows matching the current filters.</p>
+                        <h3>No processes found</h3>
+                        <p>There are no processes matching the current filters.</p>
                     </div>
                 ) : (
                     <div className="wc-table-wrapper">
                         <table className="wc-table">
                             <thead>
                                 <tr>
-                                    <th>Workflow</th>
+                                    <th>Process / Workflow</th>
                                     <th>Status</th>
                                     <th>Risk</th>
-                                    <th>Agent</th>
+                                    <th>Agent Pipeline</th>
                                     <th>Created</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.map((item) => (
-                                    <tr key={item.id} onClick={async () => {
+                                {filtered.map((proc) => (
+                                    <tr key={proc.processKey} onClick={async () => {
                                         try {
-                                            setSelected(await workflowApi.detail(item.id));
+                                            const detail = await workflowApi.detail(proc.id);
+                                            setSelected({
+                                                ...detail,
+                                                subItemIds: proc.items.map((i) => i.id)
+                                            });
                                         } catch (requestError) {
                                             setNotice(requestError.message);
                                         }
                                     }}>
                                         <td>
-                                            <strong className="wc-table-id">WF-{item.id}</strong>
-                                            <span className="wc-table-subtext">{item.objective}</span>
+                                            <strong className="wc-table-id">PROCESS-{proc.id}</strong>
+                                            <span className="wc-table-subtext">{proc.objective}</span>
                                         </td>
                                         <td>
-                                            <span className={`wc-badge ${statusClass(item.status)}`}>
-                                                <i />{statusLabels[item.status] || item.status}
+                                            <span className={`wc-badge ${statusClass(proc.status)}`}>
+                                                <i />{statusLabels[proc.status] || proc.status}
                                             </span>
                                         </td>
                                         <td>
-                                            <span className={`wc-risk-text ${(item.risk || '').toLowerCase()}`}>
-                                                {item.risk || 'Standard'}
+                                            <span className={`wc-risk-text ${(proc.risk || '').toLowerCase()}`}>
+                                                {proc.risk || 'Standard'}
                                             </span>
                                         </td>
-                                        <td>{item.agent || 'Workflow Agent'}</td>
-                                        <td>{formatDate(item.createdAt)}</td>
+                                        <td>{proc.agentPipeline || 'Workflow Agent'}</td>
+                                        <td>{formatDate(proc.createdAt)}</td>
                                         <td>
-                                            <button className="wc-btn-sm outline" aria-label={`Open workflow ${item.id}`}>→</button>
+                                            <button className="wc-btn-sm outline" aria-label={`Open process ${proc.id}`}>→</button>
                                         </td>
                                     </tr>
                                 ))}

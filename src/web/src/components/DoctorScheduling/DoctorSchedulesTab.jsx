@@ -144,7 +144,7 @@ export default function DoctorSchedulesTab() {
       }
 
       setAlert({ type: 'success', text: '✨ Schedule session created & saved in PostgreSQL Database!' });
-      
+
       const newSchedule = result.id ? result : {
         id: Date.now(),
         doctorId: selectedDocId,
@@ -262,15 +262,15 @@ export default function DoctorSchedulesTab() {
           <button type="submit" className="ds-btn ds-btn-coral">
             Assign Room & Save Schedule
           </button>
-          
-          <button
+
+          {/* <button
             type="button"
             className="ds-btn"
             style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: 'white', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8 }}
             onClick={() => setIsAiModalOpen(true)}
           >
             ⚡ Launch AI Schedule Optimizer Agent
-          </button>
+          </button> */}
         </div>
       </form>
 
@@ -284,43 +284,42 @@ export default function DoctorSchedulesTab() {
         }}
       />
 
-      <h3 style={{ marginBottom: 16, color: 'var(--ds-navy-dark)' }}>
+      <h3 className="ds-section-title">
         📋 Active Channel Schedules ({schedules.length})
       </h3>
 
-
       {loading ? (
-        <div style={{ padding: 20, textAlign: 'center', color: '#627d98' }}>Loading schedules...</div>
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)' }}>Loading schedules...</div>
       ) : (
         <div className="ds-grid">
           {schedules.map((s) => {
             const isExpired = s.isExpired !== undefined ? s.isExpired : (new Date(s.endTime) < new Date());
             return (
-              <div key={s.id} className="ds-card" style={{ opacity: isExpired ? 0.75 : 1, borderLeft: isExpired ? '4px solid #94a3b8' : '4px solid #10b981' }}>
+              <div key={s.id} className="ds-card" style={{ opacity: isExpired ? 0.75 : 1, borderLeft: isExpired ? '4px solid #94a3b8' : '4px solid var(--teal)' }}>
                 <div>
                   <div className="ds-card-header">
                     <h4 className="ds-card-title">{s.doctorName}</h4>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <span className="ds-badge ds-badge-approved">{s.specialtyName}</span>
                       {isExpired ? (
-                        <span className="ds-badge" style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}>Expired</span>
+                        <span className="ds-badge" style={{ background: 'var(--canvas)', color: 'var(--muted)', border: '1px solid var(--line)' }}>Expired</span>
                       ) : (
-                        <span className="ds-badge" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>Active</span>
+                        <span className="ds-badge ds-badge-active">Active</span>
                       )}
                     </div>
                   </div>
-                  <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 8 }}>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 8 }}>
                     <strong>📍 Consultation Room:</strong> {s.roomName} ({s.floor})
                   </div>
-                  <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 6 }}>
                     <strong>⏰ Start:</strong> {new Date(s.startTime).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 6 }}>
                     <strong>⏳ End:</strong> {new Date(s.endTime).toLocaleString()}
                   </div>
                 </div>
-                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--ds-navy-primary)' }}>
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--navy)' }}>
                     👥 Capacity: {s.maxPatients} Patients
                   </span>
                   <button

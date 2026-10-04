@@ -153,6 +153,29 @@ export const appointmentApi = {
     method: 'POST',
     body: JSON.stringify(dto),
   }),
+  update: async (id, dto) => {
+    try {
+      return await apiRequest(`/api/appointments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dto),
+      });
+    } catch (err) {
+      if (err.status === 405) {
+        try {
+          return await apiRequest(`/api/appointments/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(dto),
+          });
+        } catch {
+          return await apiRequest(`/api/appointments/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify(dto),
+          });
+        }
+      }
+      throw err;
+    }
+  },
   updateStatus: (id, dto) => apiRequest(`/api/appointments/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify(dto),

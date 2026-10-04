@@ -113,7 +113,7 @@ export default function ConsultationRoomsTab() {
         </button>
       </form>
 
-      <h3 style={{ marginBottom: 16, color: 'var(--ds-navy-dark)' }}>
+      <h3 className="ds-section-title">
         🏢 Clinic Room Inventory ({rooms.length})
       </h3>
 
@@ -127,7 +127,7 @@ export default function ConsultationRoomsTab() {
                   {room.isActive ? 'Active' : 'Maintenance'}
                 </span>
               </div>
-              <div style={{ fontSize: '0.9rem', color: '#627d98', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 16 }}>
                 Floor: {room.floor}
               </div>
             </div>

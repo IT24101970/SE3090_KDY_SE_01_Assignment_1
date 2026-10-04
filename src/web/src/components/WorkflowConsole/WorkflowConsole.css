@@ -460,6 +460,50 @@
 }
 .wc-btn.warning-border:hover { background: #fef08a; }
 
+/* Sub-navigation Tabs Bar for Governance Console */
+.wc-nav-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 22px 0 26px;
+  background: var(--surface);
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.wc-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 12px 20px;
+  font: 700 13px 'Space Grotesk', sans-serif;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 9px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wc-tab-btn:hover {
+  background-color: #f8fafc;
+  color: var(--ink);
+}
+
+.wc-tab-btn.active {
+  background-color: var(--blue);
+  color: #ffffff;
+  border-color: var(--blue);
+  box-shadow: 0 4px 14px rgba(45, 108, 223, 0.25);
+}
+
+.wc-embedded {
+  animation: fadeIn 0.25s ease-out;
+}
+
 .wc-btn-sm {
   padding: 6px 10px;
   font-size: 11px;

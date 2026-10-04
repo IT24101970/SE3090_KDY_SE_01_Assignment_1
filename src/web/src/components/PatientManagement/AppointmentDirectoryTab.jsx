@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { appointmentApi } from '../../api/channelCenterApi';
 import SlotBookingModal from './SlotBookingModal';
 import AppointmentCancelModal from './AppointmentCancelModal';
+import AppointmentEditModal from './AppointmentEditModal';
 import './PatientManagement.css';
 
 export default function AppointmentDirectoryTab() {
@@ -21,7 +22,9 @@ export default function AppointmentDirectoryTab() {
   // Modals
   const [slotBookingOpen, setSlotBookingOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [targetAppointment, setTargetAppointment] = useState(null);
+  const [editingAppointment, setEditingAppointment] = useState(null);
 
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
@@ -270,7 +273,7 @@ export default function AppointmentDirectoryTab() {
                   <th>Location</th>
                   <th>Reason for Visit</th>
                   <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Lifecycle Actions</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -283,9 +286,9 @@ export default function AppointmentDirectoryTab() {
                         <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>{formatDate(appt.appointmentDate)}</strong>
                       </td>
                       <td>
-                        <strong>{appt.patientName}</strong>
+                        <strong>{appt.patientName || 'Walk-in Patient'}</strong>
                         <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                          NIC: {appt.patientNIC} · {appt.patientPhone}
+                          NIC: {appt.patientNIC || 'N/A'} · {appt.patientPhone || 'N/A'}
                         </div>
                       </td>
                       <td>
@@ -311,51 +314,24 @@ export default function AppointmentDirectoryTab() {
                       </td>
                       <td>
                         <div className="pm-actions-group" style={{ justifyContent: 'flex-end' }}>
-                          {/* Valid Transitions based on backend rules:
-                              Pending -> Confirmed
-                              Confirmed -> Completed
-                              Pending or Confirmed -> Cancelled
-                          */}
-                          {statusStr === 'Pending' && (
-                            <button
-                              className="pm-btn-sm success"
-                              onClick={() => handleUpdateStatus(appt, 'Confirmed')}
-                              title="Transition state from Pending to Confirmed"
-                            >
-                              ✓ Confirm
-                            </button>
-                          )}
-
-                          {statusStr === 'Confirmed' && (
-                            <button
-                              className="pm-btn-sm primary"
-                              onClick={() => handleUpdateStatus(appt, 'Completed')}
-                              title="Mark consultation as completed"
-                            >
-                              ✓ Complete
-                            </button>
-                          )}
-
-                          {(statusStr === 'Pending' || statusStr === 'Confirmed') && (
+                          <button
+                            className="pm-btn-sm outline"
+                            onClick={() => {
+                              setEditingAppointment(appt);
+                              setEditModalOpen(true);
+                            }}
+                            title="Edit appointment details, doctor, schedule, date, or status"
+                          >
+                            ✏️ Edit
+                          </button>
+                          {statusStr !== 'Cancelled' && (
                             <button
                               className="pm-btn-sm danger"
                               onClick={() => handleOpenCancel(appt)}
-                              title="Cancel booking with required reason"
+                              title="Cancel appointment booking"
                             >
-                              Cancel
+                              ✕ Cancel
                             </button>
-                          )}
-
-                          {statusStr === 'Completed' && (
-                            <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>
-                              Archived
-                            </span>
-                          )}
-
-                          {statusStr === 'Cancelled' && (
-                            <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 600 }}>
-                              Cancelled
-                            </span>
                           )}
                         </div>
                       </td>
@@ -401,6 +377,16 @@ export default function AppointmentDirectoryTab() {
         isOpen={slotBookingOpen}
         onClose={() => setSlotBookingOpen(false)}
         onBooked={handleAppointmentBooked}
+      />
+
+      <AppointmentEditModal
+        isOpen={editModalOpen}
+        appointment={editingAppointment}
+        onClose={() => setEditModalOpen(false)}
+        onUpdated={(updatedAppt, msg) => {
+          showNotification(msg);
+          fetchAppointments();
+        }}
       />
 
       <AppointmentCancelModal

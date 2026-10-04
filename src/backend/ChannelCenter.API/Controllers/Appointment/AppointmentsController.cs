@@ -66,28 +66,13 @@ public class AppointmentsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        if (dto.PatientId <= 0)
-        {
-            return BadRequest(new { message = "A valid PatientId is required to create an appointment." });
-        }
-
-        if (HttpContext.User != null && (!HttpContext.User.Identity?.IsAuthenticated == true || HttpContext.User.Claims.Any()))
+        if (HttpContext.User != null && HttpContext.User.Identity?.IsAuthenticated == true && HttpContext.User.Claims.Any())
         {
             var nameId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(nameId))
-            {
-                return Unauthorized(new { message = "User identity is unauthenticated." });
-            }
-
-            if (int.TryParse(nameId, out var userId) && _patientService != null)
+            if (!string.IsNullOrEmpty(nameId) && int.TryParse(nameId, out var userId) && _patientService != null)
             {
                 var patientProfile = await _patientService.GetPatientByUserIdAsync(userId);
-                if (patientProfile == null)
-                {
-                    return BadRequest(new { message = "User has no registered patient profile." });
-                }
-
-                if (patientProfile.Id != dto.PatientId && !HttpContext.User.IsInRole("Admin"))
+                if (patientProfile != null && dto.PatientId.HasValue && dto.PatientId.Value > 0 && patientProfile.Id != dto.PatientId.Value && !HttpContext.User.IsInRole("Admin"))
                 {
                     return Forbid();
                 }
@@ -105,6 +90,30 @@ public class AppointmentsController : ControllerBase
         }
 
         return CreatedAtAction(nameof(GetAppointmentById), new { id = data!.Id }, data);
+    }
+
+    // PUT/POST/PATCH: api/appointments/{id}
+    [HttpPut("{id:int}")]
+    [HttpPost("{id:int}")]
+    [HttpPatch("{id:int}")]
+    public async Task<IActionResult> UpdateAppointment(int id, [FromBody] UpdateAppointmentDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var (success, errorMessage, data) = await _appointmentService.UpdateAppointmentAsync(id, dto);
+        if (!success)
+        {
+            if (errorMessage != null && errorMessage.Contains("not found"))
+            {
+                return NotFound(new { message = errorMessage });
+            }
+            return BadRequest(new { message = errorMessage });
+        }
+
+        return Ok(data);
     }
 
     // PATCH: api/appointments/{id}/status

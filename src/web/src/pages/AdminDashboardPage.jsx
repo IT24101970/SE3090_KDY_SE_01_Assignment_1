@@ -1,8 +1,6 @@
 import { useState, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
-import WorkflowReviewTab from '../components/WorkflowConsole/WorkflowReviewTab';
-import AuditTrailTab from '../components/WorkflowConsole/AuditTrailTab';
-import SafetyAnalyticsTab from '../components/WorkflowConsole/SafetyAnalyticsTab';
+import WorkflowGovernanceConsole from '../components/WorkflowConsole/WorkflowGovernanceConsole';
 import DoctorSchedulingPage from './DoctorSchedulingPage';
 
 // Student 1 ΓÇö Patient Management & Appointment Lifecycle
@@ -43,10 +41,10 @@ export default function AdminDashboardPage({ onSignOut }) {
         {/* Student 3: Medical Triage & Specialist Matching */}
         {activeArea === 'triage' && <ClinicalReviewView />}
 
-        {/* Student 4: Admin & Safety Workflows (unchanged) */}
-        {activeArea === 'workflows' && <WorkflowReviewTab />}
-        {activeArea === 'audit' && <AuditTrailTab />}
-        {activeArea === 'analytics' && <SafetyAnalyticsTab />}
+        {/* Student 4: Admin & Safety Workflows (Unified Governance Console) */}
+        {(activeArea === 'workflows' || activeArea === 'audit' || activeArea === 'analytics') && (
+          <WorkflowGovernanceConsole />
+        )}
 
         {/* Student 2: Doctor Scheduling (unchanged) */}
         {activeArea === 'scheduling' && <DoctorSchedulingPage />}

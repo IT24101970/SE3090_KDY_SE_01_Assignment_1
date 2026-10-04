@@ -4,8 +4,7 @@ namespace ChannelCenter.API.DTOs.Appointment;
 
 public class CreateAppointmentDto
 {
-    [Required(ErrorMessage = "PatientId is required.")]
-    public int PatientId { get; set; }
+    public int? PatientId { get; set; }
 
     [Required(ErrorMessage = "DoctorId is required.")]
     public int DoctorId { get; set; }
@@ -19,4 +18,6 @@ public class CreateAppointmentDto
     [Required(ErrorMessage = "Reason for visit is required.")]
     [StringLength(500, MinimumLength = 3, ErrorMessage = "Reason for visit must be between 3 and 500 characters.")]
     public string ReasonForVisit { get; set; } = string.Empty;
+
+    public bool SkipAiWorkflows { get; set; } = false;
 }

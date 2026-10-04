@@ -3,11 +3,9 @@ export default function Sidebar({ activeArea, onNavigate, onSignOut }) {
   const items = [
     ['patients', '👥', 'Patient Directory'],
     ['appointments', '📅', 'Appointments'],
-    ['intake', '⚡', 'AI Intake Agent'],
+    //['intake', '⚡', 'AI Intake Agent'],
     ['triage', '🩺', 'Triage & Referrals'],
-    ['workflows', '🛡️', 'Workflow Review'],
-    ['audit', '📋', 'Audit Trail'],
-    ['analytics', '📊', 'Safety Analytics'],
+    ['workflows', '🛡️', 'Workflow Governance'],
     ['scheduling', '👨‍⚕️', 'Doctor Scheduling'],
     ['admin-register', '🔑', 'Register Admin'],
   ];

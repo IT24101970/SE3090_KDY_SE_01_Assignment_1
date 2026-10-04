@@ -95,10 +95,10 @@ export default function WorkflowDetailPopup({workflow, onClose, onDecision}) {
                             Request revision
                         </button>
                         <button className="wc-btn danger-filled" onClick={() => onDecision('Rejected')}>
-                            Reject
+                            Reject process
                         </button>
                         <button className="wc-btn primary" onClick={() => onDecision('Approved')}>
-                            Approve workflow
+                            Approve entire process
                         </button>
                     </div>
                 )}

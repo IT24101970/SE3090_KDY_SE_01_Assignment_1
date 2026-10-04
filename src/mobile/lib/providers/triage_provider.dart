@@ -267,23 +267,28 @@ class TriageProvider with ChangeNotifier {
 
         if (assignRes.statusCode == 200) {
           final data = jsonDecode(assignRes.body);
-          if (data['doctorName'] != null && data['doctorName'] != 'Unknown') {
+          final statusStr = data['status'] ?? 'Pending';
+          final isPending = statusStr.toString().toLowerCase() == 'pending' || data['doctorName'] == 'Pending Doctor Assignment';
+
+          if (data['doctorName'] != null && data['doctorName'] != 'Unknown' && !isPending) {
             docName = data['doctorName'];
+            final room = data['roomName'] ?? 'Room TBD';
+            final apptDateRaw = data['appointmentDate'];
+            final apptDateStr = apptDateRaw != null ? apptDateRaw.toString().split('T')[0] : 'Pending Date';
+            schedDetail = '$apptDateStr • $room (Status: $statusStr)';
+            _workflowSteps[3].status = WorkflowStepStatus.completed;
+            _workflowSteps[3].detail = 'Component 2 AI assigned doctor ($docName) & finalized schedule slot ($schedDetail) for Appointment #$appointmentId.';
+          } else {
+            docName = 'Pending Doctor Assignment';
+            schedDetail = 'No valid schedules currently available. You will receive a notification soon.';
+            _workflowSteps[3].status = WorkflowStepStatus.inProgress;
+            _workflowSteps[3].detail = 'No valid schedules available for ${_currentAssessment?.recommendedSpecialty ?? "this specialty"}. Appointment paused & pending admin review. You will receive a notification soon.';
           }
-          final room = data['roomName'] ?? 'Room TBD';
-          final statusStr = data['status'] ?? 'Confirmed';
-          final apptDateRaw = data['appointmentDate'];
-          final apptDateStr = apptDateRaw != null ? apptDateRaw.toString().split('T')[0] : 'Pending Date';
-          
-          schedDetail = '$apptDateStr • $room (Status: $statusStr)';
         }
       } catch (_) {}
 
       _assignedDoctorName = docName;
       _assignedScheduleTime = schedDetail;
-
-      _workflowSteps[3].status = WorkflowStepStatus.completed;
-      _workflowSteps[3].detail = 'Component 2 AI assigned doctor ($docName) & finalized schedule slot ($schedDetail) for Appointment #$appointmentId.';
       notifyListeners();
 
       // ───────────────────────────────────────────────────────────────────────
@@ -445,7 +450,7 @@ class TriageProvider with ChangeNotifier {
         status: isCancelled ? WorkflowStepStatus.failed : (isConfirmedOrCompleted ? WorkflowStepStatus.completed : WorkflowStepStatus.inProgress),
         detail: isConfirmedOrCompleted
             ? 'Assigned Doctor: ${appt.doctorName} (${appt.roomName})'
-            : (isCancelled ? 'Appointment cancelled' : 'Doctor schedule pending approval'),
+            : (isCancelled ? 'Appointment cancelled' : 'No valid schedule available currently. Appointment paused pending admin review. You will receive a notification soon.'),
       ),
       AgentWorkflowStepProgress(
         stepNumber: 5,
@@ -454,7 +459,7 @@ class TriageProvider with ChangeNotifier {
         status: isCancelled ? WorkflowStepStatus.failed : (isConfirmedOrCompleted ? WorkflowStepStatus.completed : WorkflowStepStatus.inProgress),
         detail: isConfirmedOrCompleted
             ? 'Safety audit verified. Appointment is locked and Confirmed.'
-            : (isCancelled ? 'Safety audit / admin rejected workflow' : 'Awaiting clinical admin verification'),
+            : (isCancelled ? 'Safety audit / admin rejected workflow' : 'Workflow paused for human clinical admin review & schedule assignment.'),
       ),
     ];
 

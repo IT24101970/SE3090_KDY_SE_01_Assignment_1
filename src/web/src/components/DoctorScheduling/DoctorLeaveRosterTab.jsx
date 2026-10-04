@@ -64,7 +64,7 @@ export default function DoctorLeaveRosterTab() {
 
   return (
     <div>
-      <h3 style={{ marginTop: 0, marginBottom: 16, color: 'var(--ds-navy-dark)' }}>
+      <h3 className="ds-section-title">
         📋 Specialist Doctor Leave Requests ({leaves.length})
       </h3>
 
@@ -82,16 +82,16 @@ export default function DoctorLeaveRosterTab() {
                 <h4 className="ds-card-title">{leave.doctorName}</h4>
                 {getStatusBadge(leave.status)}
               </div>
-              <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
+              <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 6 }}>
                 <strong>📅 Dates:</strong> {new Date(leave.startDate).toLocaleDateString()} — {new Date(leave.endDate).toLocaleDateString()}
               </div>
-              <div style={{ fontSize: '0.9rem', color: '#627d98', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 16 }}>
                 <strong>📝 Reason:</strong> {leave.reason}
               </div>
             </div>
 
             {(leave.status === 0 || leave.status === 'Pending') && (
-              <div style={{ display: 'flex', gap: 10, paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', gap: 10, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
                 <button
                   className="ds-btn ds-btn-success"
                   style={{ flex: 1 }}

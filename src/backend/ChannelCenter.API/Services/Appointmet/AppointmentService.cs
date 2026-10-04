@@ -35,11 +35,35 @@ public class AppointmentService : IAppointmentService
 
     public async Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> CreateAppointmentAsync(CreateAppointmentDto dto)
     {
-        var patient = await _context.Patients.FindAsync(dto.PatientId);
+        Models.Patient? patient = null;
+        if (dto.PatientId.HasValue && dto.PatientId.Value > 0)
+        {
+            patient = await _context.Patients.FindAsync(dto.PatientId.Value);
+        }
+
         if (patient == null)
         {
-            return (false, $"Patient with ID {dto.PatientId} does not exist.", null);
+            // Find or create a dedicated Walk-in Patient profile so unregistered appointments don't hijack registered Patient #1
+            patient = await _context.Patients.FirstOrDefaultAsync(p => p.NIC == "WALKIN-PATIENT" || p.Name == "Walk-in Patient");
+
+            if (patient == null)
+            {
+                patient = new Models.Patient
+                {
+                    Name = "Walk-in Patient",
+                    NIC = "WALKIN-PATIENT",
+                    PhoneNumber = "N/A",
+                    Email = "walkin@hospital.local",
+                    Gender = "Unspecified",
+                    DateOfBirth = new DateTime(1990, 1, 1),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.Patients.Add(patient);
+                await _context.SaveChangesAsync();
+            }
         }
+        dto.PatientId = patient.Id;
 
         var doctor = await _context.Doctors
             .Include(d => d.User)
@@ -65,17 +89,10 @@ public class AppointmentService : IAppointmentService
         }
         dto.ScheduleId = schedule.Id;
 
-        // Prevent duplicate active booking for the same patient on this schedule with identical reason for visit
-        var duplicateBooking = await _context.Appointments.AnyAsync(a =>
-            a.PatientId == dto.PatientId &&
-            a.ScheduleId == dto.ScheduleId &&
-            a.ReasonForVisit.ToLower() == dto.ReasonForVisit.Trim().ToLower() &&
-            (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Confirmed));
-
-        if (duplicateBooking)
-        {
-            return (false, "An active appointment with identical symptom details already exists for this patient.", null);
-        }
+        var nowUtc = DateTime.UtcNow;
+        var apptDate = dto.AppointmentDate != default
+            ? DateTime.SpecifyKind(dto.AppointmentDate, DateTimeKind.Utc)
+            : (schedule.StartTime >= nowUtc ? schedule.StartTime : nowUtc.AddHours(1));
 
         // Check channel slot capacity against MaxPatients
         var activeAppointmentsCount = await _context.Appointments.CountAsync(a =>
@@ -87,24 +104,23 @@ public class AppointmentService : IAppointmentService
             return (false, $"Channel session is fully booked (Maximum {schedule.MaxPatients} patients reached).", null);
         }
 
-        var now = DateTime.UtcNow;
         var appointment = new Models.Appointment
         {
-            PatientId = dto.PatientId,
+            PatientId = patient.Id,
             DoctorId = dto.DoctorId,
             ScheduleId = dto.ScheduleId,
-            AppointmentDate = DateTime.SpecifyKind(dto.AppointmentDate, DateTimeKind.Utc),
+            AppointmentDate = apptDate,
             Status = AppointmentStatus.Pending,
             ReasonForVisit = dto.ReasonForVisit.Trim(),
-            CreatedAt = now,
-            UpdatedAt = now
+            CreatedAt = nowUtc,
+            UpdatedAt = nowUtc
         };
 
         _context.Appointments.Add(appointment);
         await _context.SaveChangesAsync();
 
-        // ── Student 1: Run Intake & Intent Structuring Agent ─────────────────
-        if (_intakeAgentService != null && !string.IsNullOrWhiteSpace(appointment.ReasonForVisit))
+        // ── Skip AI Workflows for Direct Manual Admin Assignments ─────────────────
+        if (!dto.SkipAiWorkflows && _intakeAgentService != null && !string.IsNullOrWhiteSpace(appointment.ReasonForVisit))
         {
             try
             {
@@ -159,12 +175,14 @@ public class AppointmentService : IAppointmentService
             }
             catch
             {
-                // Safe failure: do not write fake symptom data into RawSymptoms.
-                // The appointment remains durable; workflow/logs track failure.
+                // Safe failure
             }
         }
 
-        await StartSafetyAuditAfterSaveAsync(appointment);
+        if (!dto.SkipAiWorkflows)
+        {
+            await StartSafetyAuditAfterSaveAsync(appointment);
+        }
 
         var response = await GetAppointmentByIdAsync(appointment.Id);
         return (true, null, response);
@@ -380,6 +398,65 @@ public class AppointmentService : IAppointmentService
         });
     }
 
+    public async Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> UpdateAppointmentAsync(int id, UpdateAppointmentDto dto)
+    {
+        var appt = await _context.Appointments
+            .Include(a => a.Patient)
+            .Include(a => a.Doctor!.User)
+            .Include(a => a.Doctor!.Specialty)
+            .Include(a => a.Schedule!.Room)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (appt == null)
+        {
+            return (false, $"Appointment with ID {id} not found.", null);
+        }
+
+        if (dto.DoctorId.HasValue && dto.DoctorId.Value > 0)
+        {
+            var doctor = await _context.Doctors.FindAsync(dto.DoctorId.Value);
+            if (doctor != null) appt.DoctorId = doctor.Id;
+        }
+
+        if (dto.ScheduleId.HasValue && dto.ScheduleId.Value > 0)
+        {
+            var schedule = await _context.DoctorSchedules.FindAsync(dto.ScheduleId.Value);
+            if (schedule != null)
+            {
+                appt.ScheduleId = schedule.Id;
+                if (!dto.DoctorId.HasValue || dto.DoctorId.Value == 0)
+                {
+                    appt.DoctorId = schedule.DoctorId;
+                }
+            }
+        }
+
+        if (dto.AppointmentDate.HasValue && dto.AppointmentDate.Value != default)
+        {
+            appt.AppointmentDate = DateTime.SpecifyKind(dto.AppointmentDate.Value, DateTimeKind.Utc);
+        }
+
+        if (dto.ReasonForVisit != null)
+        {
+            appt.ReasonForVisit = dto.ReasonForVisit.Trim();
+        }
+
+        if (dto.Status.HasValue)
+        {
+            appt.Status = dto.Status.Value;
+            if (dto.Status.Value == AppointmentStatus.Cancelled && !string.IsNullOrWhiteSpace(dto.CancelReason))
+            {
+                appt.CancelReason = dto.CancelReason.Trim();
+            }
+        }
+
+        appt.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        var updated = await GetAppointmentByIdAsync(id);
+        return (true, null, updated);
+    }
+
     public async Task<List<ChannelSlotDto>> GetAvailableChannelSlotsAsync(ChannelSlotFilterDto filter)
     {
         IQueryable<DoctorSchedule> query = _context.DoctorSchedules
@@ -512,7 +589,7 @@ public class AppointmentService : IAppointmentService
 
             if (specialtyDocIds.Any())
             {
-                // Prefer future schedule for doctor of matching specialty
+                // Match ONLY future active schedules for doctors of matching specialty
                 matchedSchedule = await _context.DoctorSchedules
                     .Include(s => s.Doctor)
                     .ThenInclude(d => d!.User)
@@ -522,48 +599,11 @@ public class AppointmentService : IAppointmentService
                     .Where(s => specialtyDocIds.Contains(s.DoctorId) && s.EndTime >= now)
                     .OrderBy(s => s.StartTime)
                     .FirstOrDefaultAsync();
-
-                if (matchedSchedule == null)
-                {
-                    matchedSchedule = await _context.DoctorSchedules
-                        .Include(s => s.Doctor)
-                        .ThenInclude(d => d!.User)
-                        .Include(s => s.Doctor)
-                        .ThenInclude(d => d!.Specialty)
-                        .Include(s => s.Room)
-                        .Where(s => specialtyDocIds.Contains(s.DoctorId))
-                        .OrderByDescending(s => s.StartTime)
-                        .FirstOrDefaultAsync();
-                }
             }
         }
 
-        // Fallback to any future active schedule in system
-        if (matchedSchedule == null)
-        {
-            matchedSchedule = await _context.DoctorSchedules
-                .Include(s => s.Doctor)
-                .ThenInclude(d => d!.User)
-                .Include(s => s.Doctor)
-                .ThenInclude(d => d!.Specialty)
-                .Include(s => s.Room)
-                .Where(s => s.EndTime >= now)
-                .OrderBy(s => s.StartTime)
-                .FirstOrDefaultAsync();
-        }
-
-        // Final fallback to any schedule in system
-        if (matchedSchedule == null)
-        {
-            matchedSchedule = await _context.DoctorSchedules
-                .Include(s => s.Doctor)
-                .ThenInclude(d => d!.User)
-                .Include(s => s.Doctor)
-                .ThenInclude(d => d!.Specialty)
-                .Include(s => s.Room)
-                .OrderByDescending(s => s.StartTime)
-                .FirstOrDefaultAsync();
-        }
+        var workflow = await _context.AgentWorkflows
+            .FirstOrDefaultAsync(w => w.AppointmentId == appt.Id);
 
         if (matchedSchedule != null)
         {
@@ -572,14 +612,44 @@ public class AppointmentService : IAppointmentService
             appt.AppointmentDate = matchedSchedule.StartTime >= now ? matchedSchedule.StartTime : now.AddDays(1);
             appt.Status = AppointmentStatus.Confirmed;
             appt.UpdatedAt = now;
-            await _context.SaveChangesAsync();
+
+            if (workflow != null)
+            {
+                workflow.Status = WorkflowStatus.Completed;
+                workflow.RequiresHumanApproval = false;
+                workflow.ValidationSummary = $"Automatically assigned to Dr. {matchedSchedule.Doctor?.User?.FullName ?? "Specialist"} ({matchedSchedule.Room?.RoomName ?? "Room TBD"}).";
+                workflow.UpdatedAt = now;
+            }
         }
         else
         {
+            // NO valid future schedule available for recommended specialty:
+            // Do NOT assign doctor/schedule, keep status PAUSED / PENDING for admin review.
+            appt.DoctorId = 0;
+            appt.ScheduleId = 0;
             appt.Status = AppointmentStatus.Pending;
             appt.UpdatedAt = now;
-            await _context.SaveChangesAsync();
+
+            if (workflow == null)
+            {
+                workflow = new AgentWorkflow
+                {
+                    AppointmentId = appt.Id,
+                    Objective = $"Schedule assignment for appointment #{appt.Id} ({recommendedSpecialty})",
+                    CorrelationId = $"appointment-{appt.Id}-scheduling",
+                    ContractVersion = "v1",
+                    CreatedAt = now
+                };
+                _context.AgentWorkflows.Add(workflow);
+            }
+
+            workflow.Status = WorkflowStatus.PausedForApproval;
+            workflow.RequiresHumanApproval = true;
+            workflow.ValidationSummary = $"No valid schedules available for recommended specialty '{recommendedSpecialty}'. Appointment is paused pending human admin schedule assignment.";
+            workflow.UpdatedAt = now;
         }
+
+        await _context.SaveChangesAsync();
 
         var result = await GetAppointmentByIdAsync(appt.Id);
         return (true, null, result);

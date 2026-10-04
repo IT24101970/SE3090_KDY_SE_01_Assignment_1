@@ -199,10 +199,10 @@ export default function DoctorDirectoryTab() {
       {/* Top Header & Register Button */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h3 style={{ margin: 0, color: 'var(--ds-navy-dark)', fontSize: '1.25rem', fontWeight: 700 }}>
+          <h3 className="ds-section-title" style={{ margin: 0 }}>
             👨‍⚕️ Specialist Doctors Roster ({doctors.length})
           </h3>
-          <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: 'var(--ds-blue-muted)' }}>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: 'var(--muted)' }}>
             Register new doctor user accounts and manage specialist profiles.
           </p>
         </div>
@@ -222,7 +222,7 @@ export default function DoctorDirectoryTab() {
 
       {/* UNIFIED REGISTER / EDIT DOCTOR FORM */}
       {isFormOpen && (
-        <form className="ds-form" onSubmit={handleSubmitForm} style={{ border: '2px solid var(--ds-navy-primary)' }}>
+        <form className="ds-form" onSubmit={handleSubmitForm} style={{ border: '1px solid var(--blue)', boxShadow: '0 4px 20px rgba(45, 108, 223, 0.12)' }}>
           <div className="ds-form-title" style={{ justifyContent: 'space-between' }}>
             <span>
               {editingDoctorId ? '✏️ Edit Specialist Doctor Profile' : '👨‍⚕️ Register New Doctor User Account'}
@@ -230,7 +230,7 @@ export default function DoctorDirectoryTab() {
             <button
               type="button"
               onClick={handleCloseForm}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--muted)' }}
             >
               ✖
             </button>
@@ -317,10 +317,10 @@ export default function DoctorDirectoryTab() {
       )}
 
       {/* DOCTOR DIRECTORY TABLE */}
-      <div style={{ overflowX: 'auto', background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: 'var(--ds-shadow)' }}>
+      <div style={{ overflowX: 'auto', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--line)', boxShadow: 'var(--shadow)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem' }}>
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: 'var(--ds-navy-primary)' }}>
+            <tr style={{ background: 'var(--canvas)', borderBottom: '2px solid var(--line)', color: 'var(--navy)' }}>
               <th style={{ padding: '14px 18px', fontWeight: 700 }}>Doctor Name</th>
               <th style={{ padding: '14px 18px', fontWeight: 700 }}>Specialty</th>
               <th style={{ padding: '14px 18px', fontWeight: 700 }}>Qualifications & Credentials</th>
@@ -331,7 +331,7 @@ export default function DoctorDirectoryTab() {
           <tbody>
             {doctors.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>
+                <td colSpan="5" style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>
                   No doctors registered in database directory.
                 </td>
               </tr>
@@ -340,12 +340,12 @@ export default function DoctorDirectoryTab() {
                 <tr
                   key={d.id}
                   style={{
-                    borderBottom: '1px solid #f1f5f9',
-                    background: index % 2 === 0 ? '#ffffff' : '#f8fafc',
+                    borderBottom: '1px solid var(--line)',
+                    background: index % 2 === 0 ? 'var(--surface)' : 'var(--canvas)',
                     transition: 'background 0.15s ease'
                   }}
                 >
-                  <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--ds-navy-dark)' }}>
+                  <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--ink)' }}>
                     {d.doctorName}
                   </td>
                   <td style={{ padding: '14px 18px' }}>
@@ -353,10 +353,10 @@ export default function DoctorDirectoryTab() {
                       {d.specialtyName}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 18px', color: '#334155' }}>
+                  <td style={{ padding: '14px 18px', color: 'var(--ink)' }}>
                     {d.qualifications || 'N/A'}
                   </td>
-                  <td style={{ padding: '14px 18px', color: '#64748b', fontWeight: 600 }}>
+                  <td style={{ padding: '14px 18px', color: 'var(--muted)', fontWeight: 600 }}>
                     #{d.userId}
                   </td>
                   <td style={{ padding: '14px 18px', textAlign: 'right' }}>
