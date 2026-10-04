@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { authApi } from '../api/channelCenterApi';
 
-export default function AdminRegisterTab() {
+export default function AdminRegisterTab({ isModal = false, onClose }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +35,7 @@ export default function AdminRegisterTab() {
         password,
       });
 
-      setSuccess(`Admin user "${response.user?.fullName || fullName}" was registered successfully! Password has been securely hashed in the database.`);
+      setSuccess(`Admin user "${response.user?.fullName || fullName}" registered successfully!`);
       setFullName('');
       setEmail('');
       setPassword('');
@@ -47,57 +47,43 @@ export default function AdminRegisterTab() {
     }
   };
 
-  return (
-    <div className="tab-container" style={{ padding: '28px', maxWidth: '800px' }}>
-      <div className="tab-header" style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '24px' }}>🔑</span>
-          <div>
-            <h2 style={{ font: "700 22px 'Space Grotesk', sans-serif", margin: 0, color: 'var(--navy)' }}>
-              Admin User Management
-            </h2>
-            <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '4px 0 0' }}>
-              Register new administrator accounts. Only logged-in administrators can perform this action.
-            </p>
-          </div>
-        </div>
-      </div>
-
+  const formContent = (
+    <div>
       <div
         className="admin-security-banner"
         style={{
           background: 'linear-gradient(135deg, #edf4ff 0%, #e0ecff 100%)',
           border: '1px solid #cce0ff',
           borderRadius: '12px',
-          padding: '16px 20px',
-          marginBottom: '24px',
+          padding: '14px 18px',
+          marginBottom: '20px',
           display: 'flex',
           alignItems: 'flex-start',
           gap: '12px',
         }}
       >
-        <span style={{ fontSize: '20px', lineHeight: 1 }}>🛡️</span>
-        <div style={{ fontSize: '13px', color: '#1e40af', lineHeight: '1.5' }}>
+        <span style={{ fontSize: '18px', lineHeight: 1 }}>🛡️</span>
+        <div style={{ fontSize: '12.5px', color: '#1e40af', lineHeight: '1.45' }}>
           <strong>Role-Restricted Provisioning</strong>
           <br />
-          You are currently logged in as an authorized <strong>Admin</strong>. Newly created accounts will be granted full Admin role privileges and saved with salted password hashing in the database (`User` table).
+          Newly created accounts will be granted full Admin role privileges and saved with salted password hashing in the database.
         </div>
       </div>
 
       {error && (
-        <div className="login-error" role="alert" style={{ marginBottom: '20px' }}>
+        <div className="login-error" role="alert" style={{ marginBottom: '16px' }}>
           {error}
         </div>
       )}
 
       {success && (
-        <div className="login-success" role="status" style={{ marginBottom: '20px' }}>
+        <div className="login-success" role="status" style={{ marginBottom: '16px' }}>
           {success}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-        <div className="form-field" style={{ marginBottom: '18px' }}>
+      <form onSubmit={handleSubmit}>
+        <div className="form-field" style={{ marginBottom: '14px' }}>
           <label className="login-label" htmlFor="admin-fullname">
             Full Name <span style={{ color: 'var(--red)' }}>*</span>
           </label>
@@ -112,7 +98,7 @@ export default function AdminRegisterTab() {
           />
         </div>
 
-        <div className="form-field" style={{ marginBottom: '18px' }}>
+        <div className="form-field" style={{ marginBottom: '14px' }}>
           <label className="login-label" htmlFor="admin-email">
             Email Address <span style={{ color: 'var(--red)' }}>*</span>
           </label>
@@ -128,7 +114,7 @@ export default function AdminRegisterTab() {
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
           <div className="form-field">
             <label className="login-label" htmlFor="admin-password">
               Password <span style={{ color: 'var(--red)' }}>*</span>
@@ -141,7 +127,7 @@ export default function AdminRegisterTab() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimum 6 characters"
+              placeholder="Min 6 chars"
               autoComplete="new-password"
             />
           </div>
@@ -163,26 +149,59 @@ export default function AdminRegisterTab() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            className="outline-button"
-            onClick={() => {
-              setFullName('');
-              setEmail('');
-              setPassword('');
-              setConfirmPassword('');
-              setError('');
-              setSuccess('');
-            }}
-          >
-            Clear Form
-          </button>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          {isModal && (
+            <button
+              type="button"
+              className="outline-button"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          )}
           <button type="submit" className="primary-button" disabled={pending}>
-            {pending ? 'Registering Admin…' : '🔑 Register New Admin'}
+            {pending ? 'Registering...' : '🔑 Register Admin'}
           </button>
         </div>
       </form>
+    </div>
+  );
+
+  if (isModal) {
+    return (
+      <div className="pm-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+        <div className="pm-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+          <div className="pm-modal-header">
+            <div>
+              <span className="eyebrow">Admin Management</span>
+              <h2>Register New Admin</h2>
+            </div>
+            <button type="button" className="pm-modal-close" onClick={onClose} aria-label="Close dialog">×</button>
+          </div>
+          <div className="pm-modal-body" style={{ padding: '20px' }}>
+            {formContent}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tab-container" style={{ padding: '28px', maxWidth: '800px' }}>
+      <div className="tab-header" style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '24px' }}>🔑</span>
+          <div>
+            <h2 style={{ font: "700 22px 'Space Grotesk', sans-serif", margin: 0, color: 'var(--navy)' }}>
+              Admin User Management
+            </h2>
+            <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '4px 0 0' }}>
+              Register new administrator accounts.
+            </p>
+          </div>
+        </div>
+      </div>
+      {formContent}
     </div>
   );
 }

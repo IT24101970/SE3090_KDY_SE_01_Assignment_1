@@ -7,7 +7,6 @@ export default function Sidebar({ activeArea, onNavigate, onSignOut }) {
     ['triage', '🩺', 'Triage & Referrals'],
     ['workflows', '🛡️', 'Workflow Governance'],
     ['scheduling', '👨‍⚕️', 'Doctor Scheduling'],
-    ['admin-register', '🔑', 'Register Admin'],
   ];
 
   const getInitials = (name) => {
@@ -39,8 +38,18 @@ export default function Sidebar({ activeArea, onNavigate, onSignOut }) {
         ))}
       </nav>
       <div className="sidebar-footer">
-        <div className="api-status">
-          <span className="status-dot" /> API Connected
+        <div className="api-status" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="status-dot" /> API Connected
+          </div>
+          <button
+            className={activeArea === 'admin-register' ? 'admin-add-btn active' : 'admin-add-btn'}
+            onClick={() => onNavigate('admin-register')}
+            title="Register New Admin Account"
+            aria-label="Register New Admin Account"
+          >
+            +
+          </button>
         </div>
         <button className="user-menu" onClick={onSignOut} title="Click to Sign Out">
           <span className="avatar">{getInitials(userName)}</span>

@@ -32,6 +32,49 @@ export default function SlotBookingModal({
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   const [prevPatient, setPrevPatient] = useState(preselectedPatient);
 
+  const [patientSearch, setPatientSearch] = useState('');
+  const [isPatientMenuOpen, setIsPatientMenuOpen] = useState(false);
+
+  const [doctorSearch, setDoctorSearch] = useState('');
+  const [isDoctorMenuOpen, setIsDoctorMenuOpen] = useState(false);
+
+  // Sync patient label when selectedPatientId changes
+  useEffect(() => {
+    if (selectedPatientId && patients.length > 0) {
+      const p = patients.find((x) => String(x.id) === String(selectedPatientId));
+      if (p) setPatientSearch(`${p.name} (NIC: ${p.nic})`);
+    }
+  }, [selectedPatientId, patients]);
+
+  // Sync doctor label when selectedDoctorId changes
+  useEffect(() => {
+    if (selectedDoctorId && doctors.length > 0) {
+      const d = doctors.find((x) => String(x.id) === String(selectedDoctorId));
+      if (d) {
+        const name = d.doctorName || d.fullName || d.name || d.user?.fullName || `Doctor #${d.id}`;
+        const spec = d.specialtyName || d.specialty?.name || 'Specialist';
+        setDoctorSearch(`${name} (${spec})`);
+      }
+    }
+  }, [selectedDoctorId, doctors]);
+
+  const filteredPatients = patients.filter((p) => {
+    if (!patientSearch) return true;
+    const q = patientSearch.toLowerCase();
+    const name = (p.name || '').toLowerCase();
+    const nic = (p.nic || '').toLowerCase();
+    const phone = (p.phoneNumber || '').toLowerCase();
+    return name.includes(q) || nic.includes(q) || phone.includes(q);
+  });
+
+  const filteredDoctors = doctors.filter((d) => {
+    if (!doctorSearch) return true;
+    const q = doctorSearch.toLowerCase();
+    const name = (d.doctorName || d.fullName || d.name || d.user?.fullName || '').toLowerCase();
+    const spec = (d.specialtyName || d.specialty?.name || '').toLowerCase();
+    return name.includes(q) || spec.includes(q);
+  });
+
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
     if (isOpen) {
@@ -41,6 +84,8 @@ export default function SlotBookingModal({
       setReasonForVisit('');
       setReasonError('');
       setApiError('');
+      setIsPatientMenuOpen(false);
+      setIsDoctorMenuOpen(false);
     }
   }
 
@@ -215,28 +260,87 @@ export default function SlotBookingModal({
                   <span className="pm-badge low">Locked</span>
                 </div>
               ) : (
-                <>
-                  <select
-                    id="booking-patient-select"
-                    className={`pm-select-field ${patientError ? 'error' : ''}`}
-                    style={{ width: '100%', marginTop: '4px' }}
-                    value={selectedPatientId}
+                <div style={{ position: 'relative', marginTop: '4px' }}>
+                  <input
+                    id="booking-patient-search"
+                    type="text"
+                    className={`pm-input ${patientError ? 'error' : ''}`}
+                    style={{ width: '100%', paddingRight: patientSearch ? '32px' : '12px' }}
+                    placeholder="🔍 Search patient by name, NIC, or phone (or type walk-in)..."
+                    value={patientSearch}
+                    onFocus={() => setIsPatientMenuOpen(true)}
                     onChange={(e) => {
-                      setSelectedPatientId(e.target.value);
+                      setPatientSearch(e.target.value);
+                      setIsPatientMenuOpen(true);
                       if (patientError) setPatientError('');
                       if (apiError) setApiError('');
                     }}
                     disabled={submitting}
-                  >
-                    <option value="">-- Unregistered / Walk-in Patient --</option>
-                    {patients.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} (NIC: {p.nic}, Phone: {p.phoneNumber})
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  {patientSearch && (
+                    <button
+                      type="button"
+                      style={{
+                        position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                        background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '14px'
+                      }}
+                      onClick={() => {
+                        setSelectedPatientId('');
+                        setPatientSearch('');
+                        setIsPatientMenuOpen(true);
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+
+                  {isPatientMenuOpen && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                      background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '8px',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: '200px', overflowY: 'auto', marginTop: '4px'
+                    }}>
+                      <div
+                        style={{ padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid var(--line)', fontSize: '13px', color: 'var(--muted)', fontStyle: 'italic' }}
+                        onClick={() => {
+                          setSelectedPatientId('');
+                          setPatientSearch('');
+                          setIsPatientMenuOpen(false);
+                        }}
+                      >
+                        -- Unregistered / Walk-in Patient --
+                      </div>
+                      {filteredPatients.length === 0 ? (
+                        <div style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--muted)' }}>
+                          No matching patients found for "{patientSearch}"
+                        </div>
+                      ) : (
+                        filteredPatients.map((p) => (
+                          <div
+                            key={p.id}
+                            style={{
+                              padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--line)',
+                              display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px',
+                              background: String(selectedPatientId) === String(p.id) ? 'var(--blue-soft)' : 'transparent'
+                            }}
+                            onClick={() => {
+                              setSelectedPatientId(String(p.id));
+                              setPatientSearch(`${p.name} (NIC: ${p.nic})`);
+                              setIsPatientMenuOpen(false);
+                            }}
+                          >
+                            <div>
+                              <strong>👤 {p.name}</strong>
+                              <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block' }}>NIC: {p.nic} · Phone: {p.phoneNumber}</span>
+                            </div>
+                            <span className="pm-badge low">Registered</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                   {patientError && <span className="pm-field-error">{patientError}</span>}
-                </>
+                </div>
               )}
             </div>
 
@@ -274,19 +378,85 @@ export default function SlotBookingModal({
                   />
                 </div>
 
-                <div>
-                  <label className="pm-label" style={{ fontSize: '11px' }}>Doctor</label>
-                  <select
-                    className="pm-select-field"
-                    style={{ width: '100%', padding: '7px 10px' }}
-                    value={selectedDoctorId}
-                    onChange={(e) => setSelectedDoctorId(e.target.value)}
-                  >
-                    <option value="">All Doctors</option>
-                    {doctors.map((d) => (
-                      <option key={d.id} value={d.id}>{d.fullName || d.user?.fullName || `Doctor #${d.id}`}</option>
-                    ))}
-                  </select>
+                <div style={{ position: 'relative' }}>
+                  <label className="pm-label" style={{ fontSize: '11px' }}>Doctor Search</label>
+                  <div style={{ position: 'relative', marginTop: '2px' }}>
+                    <input
+                      type="text"
+                      className="pm-input"
+                      style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '13px' }}
+                      placeholder="🔍 Search doctor or specialty..."
+                      value={doctorSearch}
+                      onFocus={() => setIsDoctorMenuOpen(true)}
+                      onChange={(e) => {
+                        setDoctorSearch(e.target.value);
+                        setIsDoctorMenuOpen(true);
+                      }}
+                    />
+                    {doctorSearch && (
+                      <button
+                        type="button"
+                        style={{
+                          position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+                          background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '12px'
+                        }}
+                        onClick={() => {
+                          setSelectedDoctorId('');
+                          setDoctorSearch('');
+                          setIsDoctorMenuOpen(true);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {isDoctorMenuOpen && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                      background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '8px',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: '180px', overflowY: 'auto', marginTop: '4px'
+                    }}>
+                      <div
+                        style={{ padding: '7px 10px', cursor: 'pointer', borderBottom: '1px solid var(--line)', fontSize: '12px', color: 'var(--muted)' }}
+                        onClick={() => {
+                          setSelectedDoctorId('');
+                          setDoctorSearch('');
+                          setIsDoctorMenuOpen(false);
+                        }}
+                      >
+                        All Doctors
+                      </div>
+                      {filteredDoctors.length === 0 ? (
+                        <div style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--muted)' }}>
+                          No doctors found for "{doctorSearch}"
+                        </div>
+                      ) : (
+                        filteredDoctors.map((d) => {
+                          const docName = d.doctorName || d.fullName || d.name || d.user?.fullName || `Doctor #${d.id}`;
+                          const specName = d.specialtyName || d.specialty?.name || 'Specialist';
+                          return (
+                            <div
+                              key={d.id}
+                              style={{
+                                padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid var(--line)',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px',
+                                background: String(selectedDoctorId) === String(d.id) ? 'var(--blue-soft)' : 'transparent'
+                              }}
+                              onClick={() => {
+                                setSelectedDoctorId(String(d.id));
+                                setDoctorSearch(`${docName} (${specName})`);
+                                setIsDoctorMenuOpen(false);
+                              }}
+                            >
+                              <strong>👨‍⚕️ {docName}</strong>
+                              <span style={{ fontSize: '10px', color: 'var(--blue)', background: '#e6f4ff', padding: '2px 6px', borderRadius: '4px' }}>{specName}</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>

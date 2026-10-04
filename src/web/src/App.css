@@ -29,14 +29,14 @@ button { cursor: pointer; }
 }
 
 .console-sidebar {
-  width: 260px;
-  flex: 0 0 260px;
+  width: 235px;
+  flex: 0 0 235px;
   height: 100vh;
   background: var(--navy);
   color: #dce8f7;
   display: flex;
   flex-direction: column;
-  padding: 26px 16px 20px;
+  padding: 20px 14px 16px;
   box-shadow: 4px 0 24px rgba(18, 33, 58, 0.05);
   z-index: 10;
   position: sticky;
@@ -47,7 +47,7 @@ button { cursor: pointer; }
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
@@ -64,19 +64,19 @@ button { cursor: pointer; }
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 10px 32px;
+  gap: 10px;
+  padding: 0 6px 20px;
 }
 
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   background: linear-gradient(135deg, #4e82ed 0%, #2d6cdf 100%);
   color: #fff;
-  font: 700 13px 'Space Grotesk', sans-serif;
+  font: 700 12px 'Space Grotesk', sans-serif;
   letter-spacing: 0.04em;
   box-shadow: 0 4px 12px rgba(45, 108, 223, 0.35);
 }
@@ -84,15 +84,15 @@ button { cursor: pointer; }
 .sidebar-brand strong {
   display: block;
   color: #ffffff;
-  font: 700 16px 'Space Grotesk', sans-serif;
+  font: 700 15px 'Space Grotesk', sans-serif;
   letter-spacing: -0.02em;
 }
 
 .sidebar-brand span {
   display: block;
   color: #8da3bf;
-  font-size: 11px;
-  margin-top: 2px;
+  font-size: 10px;
+  margin-top: 1px;
   font-weight: 500;
 }
 
@@ -102,21 +102,21 @@ button { cursor: pointer; }
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 0 12px 12px;
+  padding: 0 10px 8px;
 }
 
 .nav-item {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   width: 100%;
   border: 0;
   background: transparent;
   color: #a9bad1;
-  border-radius: 10px;
+  border-radius: 9px;
   text-align: left;
-  padding: 11px 14px;
-  margin: 3px 0;
+  padding: 9px 12px;
+  margin: 2px 0;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -125,9 +125,9 @@ button { cursor: pointer; }
 }
 
 .nav-icon {
-  width: 20px;
+  width: 18px;
   text-align: center;
-  font-size: 16px;
+  font-size: 15px;
   display: grid;
   place-items: center;
 }
@@ -147,7 +147,7 @@ button { cursor: pointer; }
 
 .sidebar-footer {
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -158,7 +158,7 @@ button { cursor: pointer; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 10px 14px;
+  padding: 8px 6px 12px;
 }
 
 .status-dot {
@@ -168,6 +168,30 @@ button { cursor: pointer; }
   background: #3fca96;
   border-radius: 50%;
   box-shadow: 0 0 0 3px rgba(63, 202, 150, 0.2);
+}
+
+.admin-add-btn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #dce8f7;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.admin-add-btn:hover, .admin-add-btn.active {
+  background: var(--blue, #2d6cdf);
+  color: #ffffff;
+  border-color: #6d99ff;
+  box-shadow: 0 2px 8px rgba(45, 108, 223, 0.35);
 }
 
 .user-menu {

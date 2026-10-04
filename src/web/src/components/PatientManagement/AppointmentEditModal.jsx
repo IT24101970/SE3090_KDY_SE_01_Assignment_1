@@ -24,6 +24,30 @@ export default function AppointmentEditModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Searchable Doctor State
+  const [doctorSearch, setDoctorSearch] = useState('');
+  const [isDoctorMenuOpen, setIsDoctorMenuOpen] = useState(false);
+
+  // Sync doctorSearch label when selectedDoctorId or doctors list changes
+  useEffect(() => {
+    if (selectedDoctorId && doctors.length > 0) {
+      const doc = doctors.find((d) => String(d.id) === String(selectedDoctorId));
+      if (doc) {
+        const name = doc.doctorName || doc.fullName || doc.name || doc.user?.fullName || `Doctor #${doc.id}`;
+        const spec = doc.specialtyName || doc.specialty?.name || 'Specialist';
+        setDoctorSearch(`${name} (${spec})`);
+      }
+    }
+  }, [selectedDoctorId, doctors]);
+
+  const filteredDoctors = doctors.filter((d) => {
+    if (!doctorSearch) return true;
+    const q = doctorSearch.toLowerCase();
+    const name = (d.doctorName || d.fullName || d.name || d.user?.fullName || '').toLowerCase();
+    const spec = (d.specialtyName || d.specialty?.name || '').toLowerCase();
+    return name.includes(q) || spec.includes(q);
+  });
+
   // Pre-fill fields when modal opens with appointment
   useEffect(() => {
     if (isOpen && appointment) {
@@ -43,6 +67,7 @@ export default function AppointmentEditModal({
       setReasonForVisit(appointment.reasonForVisit || '');
       setCancelReason(appointment.cancelReason || '');
       setError('');
+      setIsDoctorMenuOpen(false);
     }
   }, [isOpen, appointment]);
 
@@ -158,31 +183,92 @@ export default function AppointmentEditModal({
               <span className="pm-badge low">Fixed Patient</span>
             </div>
 
-            {/* Reassign Doctor */}
-            <div style={{ marginBottom: '16px' }}>
-              <label className="pm-label" htmlFor="edit-doctor-select">
+            {/* Reassign Doctor Search Bar */}
+            <div style={{ marginBottom: '16px', position: 'relative' }}>
+              <label className="pm-label" htmlFor="edit-doctor-search">
                 Assigned Doctor & Specialty
               </label>
-              <select
-                id="edit-doctor-select"
-                className="pm-select-field"
-                style={{ width: '100%', marginTop: '4px' }}
-                value={selectedDoctorId}
-                onChange={(e) => {
-                  setSelectedDoctorId(e.target.value);
-                  // Update schedule dropdown filter if doctor changes
-                  const matchSched = schedules.find((s) => String(s.doctorId) === String(e.target.value));
-                  if (matchSched) setSelectedScheduleId(String(matchSched.scheduleId));
-                }}
-                disabled={submitting || loadingInitial}
-              >
-                <option value="">-- Keep Current Doctor ({appointment.doctorName || 'Assigned'}) --</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.fullName || d.user?.fullName || `Doctor #${d.id}`} ({d.specialtyName || d.specialty?.name || 'Specialist'})
-                  </option>
-                ))}
-              </select>
+              <div style={{ position: 'relative', marginTop: '4px' }}>
+                <input
+                  id="edit-doctor-search"
+                  type="text"
+                  className="pm-input"
+                  style={{ width: '100%', paddingRight: doctorSearch ? '32px' : '12px' }}
+                  placeholder="🔍 Type doctor name or specialty (e.g. Sarah, Cardiology)..."
+                  value={doctorSearch}
+                  onFocus={() => setIsDoctorMenuOpen(true)}
+                  onChange={(e) => {
+                    setDoctorSearch(e.target.value);
+                    setIsDoctorMenuOpen(true);
+                  }}
+                  disabled={submitting || loadingInitial}
+                />
+                {doctorSearch && (
+                  <button
+                    type="button"
+                    style={{
+                      position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '14px'
+                    }}
+                    onClick={() => {
+                      setSelectedDoctorId('');
+                      setDoctorSearch('');
+                      setIsDoctorMenuOpen(true);
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {isDoctorMenuOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                  background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '8px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: '200px', overflowY: 'auto', marginTop: '4px'
+                }}>
+                  <div
+                    style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--line)', fontSize: '13px', color: 'var(--muted)' }}
+                    onClick={() => {
+                      setSelectedDoctorId('');
+                      setDoctorSearch('');
+                      setIsDoctorMenuOpen(false);
+                    }}
+                  >
+                    -- Keep Current Doctor ({appointment.doctorName || 'Assigned'}) --
+                  </div>
+                  {filteredDoctors.length === 0 ? (
+                    <div style={{ padding: '10px 12px', fontSize: '13px', color: 'var(--muted)' }}>
+                      No matching doctors found for "{doctorSearch}"
+                    </div>
+                  ) : (
+                    filteredDoctors.map((d) => {
+                      const docName = d.doctorName || d.fullName || d.name || d.user?.fullName || `Doctor #${d.id}`;
+                      const specName = d.specialtyName || d.specialty?.name || 'Specialist';
+                      return (
+                        <div
+                          key={d.id}
+                          style={{
+                            padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--line)',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px',
+                            background: String(selectedDoctorId) === String(d.id) ? 'var(--blue-soft)' : 'transparent'
+                          }}
+                          onClick={() => {
+                            setSelectedDoctorId(String(d.id));
+                            setDoctorSearch(`${docName} (${specName})`);
+                            setIsDoctorMenuOpen(false);
+                            const matchSched = schedules.find((s) => String(s.doctorId) === String(d.id));
+                            if (matchSched) setSelectedScheduleId(String(matchSched.scheduleId));
+                          }}
+                        >
+                          <strong>👨‍⚕️ {docName}</strong>
+                          <span className="pm-badge low" style={{ background: '#e6f4ff', color: 'var(--blue)' }}>{specName}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Reassign Doctor Schedule / Room Session */}
