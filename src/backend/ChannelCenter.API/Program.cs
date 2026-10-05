@@ -26,6 +26,15 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? builder.Configuration["DefaultConnection"]
     ?? "Host=localhost;Database=channel_center_db;Username=postgres;Password=postgres";
 
+// Clean up psql prefix or quotes if pasted directly from terminal command
+connectionString = connectionString.Trim();
+if (connectionString.StartsWith("psql ")) connectionString = connectionString.Substring(5).Trim();
+if ((connectionString.StartsWith("'") && connectionString.EndsWith("'")) ||
+    (connectionString.StartsWith("\"") && connectionString.EndsWith("\"")))
+{
+    connectionString = connectionString.Substring(1, connectionString.Length - 2).Trim();
+}
+
 // ── Core MVC & Routing ───────────────────────────────────────────────────────
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
