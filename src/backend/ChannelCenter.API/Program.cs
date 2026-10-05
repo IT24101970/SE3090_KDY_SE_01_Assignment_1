@@ -15,8 +15,15 @@ using ChannelCenter.API.Services.DoctorScheduling;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Azure App Service Port Binding ──────────────────────────────────────────
+var appPort = Environment.GetEnvironmentVariable("PORT") 
+    ?? Environment.GetEnvironmentVariable("WEBSITES_PORT") 
+    ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{appPort}", "http://0.0.0.0:80");
+
 // ── Connection String ────────────────────────────────────────────────────────
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? builder.Configuration["DefaultConnection"]
     ?? "Host=localhost;Database=channel_center_db;Username=postgres;Password=postgres";
 
 // ── Core MVC & Routing ───────────────────────────────────────────────────────
