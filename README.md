@@ -223,5 +223,3 @@ cd src/ai-service && pytest
 * **Group:** SE3090_KDY_SE_01
 
 ---
-
-<p align="center">Made with ❤️ for SE3090 Software Engineering Frameworks</p>
