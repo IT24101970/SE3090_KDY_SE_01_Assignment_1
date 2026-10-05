@@ -30,7 +30,7 @@ jobs:
           api_location: ""
           output_location: "dist"
         env:
-          VITE_API_BASE_URL: "https://channel-center-api.azurewebsites.net"
+          VITE_API_BASE_URL: "https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net"
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

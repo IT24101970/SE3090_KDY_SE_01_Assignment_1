@@ -1,10 +1,10 @@
 const getApiBase = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   if (envUrl && typeof envUrl === 'string' && !envUrl.includes('localhost')) {
-    return envUrl;
+    return envUrl.replace(/\/$/, '');
   }
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return 'https://channel-center-api.azurewebsites.net';
+    return 'https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net';
   }
   return 'http://localhost:5066';
 };
