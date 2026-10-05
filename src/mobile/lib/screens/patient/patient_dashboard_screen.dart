@@ -154,24 +154,24 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     final authUser = Provider.of<AuthProvider>(context).currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
         title: Row(
           children: [
-            const Icon(Icons.favorite, color: Colors.cyanAccent),
+            const Icon(Icons.medical_services_rounded, color: Color(0xFF2563EB)),
             const SizedBox(width: 8),
             Text(
               authUser != null ? authUser.fullName : 'Patient Portal',
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Color(0xFF2563EB)),
             tooltip: 'Refresh Status',
             onPressed: _refreshAppointmentsStatus,
           ),
@@ -192,9 +192,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentTabIndex,
-        backgroundColor: const Color(0xFF1E293B),
-        selectedItemColor: Colors.cyanAccent,
-        unselectedItemColor: Colors.white54,
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF2563EB),
+        unselectedItemColor: const Color(0xFF64748B),
+        elevation: 8,
         onTap: (index) => setState(() => _currentTabIndex = index),
         items: const [
           BottomNavigationBarItem(
@@ -219,16 +220,77 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // AI AI Agent Banner Explanation
+          // Highlighted Emergency Contact Banner
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF), // Soft Blue fill
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.phone_in_talk_rounded,
+                  color: Color(0xFF2563EB),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        '- for emergencies, assistance, etc',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E3A8A),
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'contact 0123456789, 0987654321',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // AI Agent Banner Explanation
           Container(
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -258,12 +320,12 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 
           const Text(
             'Describe Your Symptoms',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
           ),
           const SizedBox(height: 6),
           const Text(
             'Be as detailed as possible (e.g., severity, location, duration).',
-            style: TextStyle(fontSize: 12, color: Colors.white60),
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 10),
 
@@ -271,15 +333,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           TextFormField(
             controller: _symptomsController,
             maxLines: 4,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Color(0xFF0F172A)),
             decoration: InputDecoration(
               hintText: 'e.g. Sharp chest pain radiating to left arm, shortness of breath for 2 days...',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
               filled: true,
-              fillColor: const Color(0xFF1E293B),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white12)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyan)),
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5)),
             ),
           ),
 
@@ -291,17 +353,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             children: [
               const Text(
                 'Symptom Severity Rating',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.cyan.withValues(alpha: 0.2),
+                  color: const Color(0xFFDBEAFE),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '${_severityRating.toInt()}/10',
-                  style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Color(0xFF1E40AF), fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -311,8 +373,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             min: 1,
             max: 10,
             divisions: 9,
-            activeColor: Colors.cyan,
-            inactiveColor: Colors.white12,
+            activeColor: const Color(0xFF2563EB),
+            inactiveColor: const Color(0xFFE2E8F0),
             onChanged: (val) => setState(() => _severityRating = val),
           ),
 
@@ -322,26 +384,26 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
-              title: const Text('Optional Medical Background', style: TextStyle(color: Colors.cyanAccent, fontSize: 14)),
+              title: const Text('Optional Medical Background', style: TextStyle(color: Color(0xFF2563EB), fontSize: 14, fontWeight: FontWeight.w600)),
               tilePadding: EdgeInsets.zero,
               children: [
                 TextFormField(
                   controller: _historyController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color(0xFF0F172A)),
                   decoration: _inputDecoration('Existing Medical Conditions (e.g. Diabetes, Asthma)'),
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _allergiesController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color(0xFF0F172A)),
                   decoration: _inputDecoration('Allergies (e.g. Penicillin)'),
                 ),
                 const SizedBox(height: 10),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Symptom Onset Date', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  subtitle: Text(DateFormat('yyyy-MM-dd').format(_onsetDate), style: const TextStyle(color: Colors.cyanAccent)),
-                  trailing: const Icon(Icons.calendar_today, color: Colors.cyan),
+                  title: const Text('Symptom Onset Date', style: TextStyle(color: Color(0xFF475569), fontSize: 13)),
+                  subtitle: Text(DateFormat('yyyy-MM-dd').format(_onsetDate), style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+                  trailing: const Icon(Icons.calendar_today, color: Color(0xFF2563EB)),
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
@@ -364,14 +426,14 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             child: ElevatedButton.icon(
               icon: _isSubmitting
                   ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.send_rounded),
+                  : const Icon(Icons.send_rounded, color: Colors.white),
               label: Text(
                 _isSubmitting ? 'AI Agent Processing...' : 'Submit Symptoms for AI Appointment',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.cyan,
-                foregroundColor: Colors.black,
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -419,18 +481,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     children: const [
                       Text(
                         'My Patient Appointments',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                       ),
                       SizedBox(height: 2),
                       Text(
                         'Tap any appointment card to view its AI agent triage status & details.',
-                        style: TextStyle(fontSize: 12, color: Colors.white60),
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.cyanAccent),
+                  icon: const Icon(Icons.refresh, color: Color(0xFF2563EB)),
                   onPressed: _refreshAppointmentsStatus,
                   tooltip: 'Refresh Appointments',
                 ),
@@ -456,19 +518,19 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Column(
                   children: const [
-                    Icon(Icons.assignment_outlined, size: 48, color: Colors.white38),
+                    Icon(Icons.assignment_outlined, size: 48, color: Color(0xFF94A3B8)),
                     SizedBox(height: 12),
-                    Text('No appointments found', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text('No appointments found', style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold)),
                     SizedBox(height: 4),
                     Text(
                       'Use the "Make Appointment" tab to submit your symptoms.',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
                     ),
                   ],
                 ),
@@ -484,29 +546,30 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   final isConfirmed = statusLower == 'confirmed' || statusLower == 'completed';
                   final isCancelled = statusLower == 'cancelled';
 
-                  Color badgeColor = Colors.amber;
+                  Color badgeColor = const Color(0xFFD97706);
                   String badgeText = appt.status.toUpperCase();
                   if (isConfirmed) {
-                    badgeColor = Colors.green;
+                    badgeColor = const Color(0xFF16A34A);
                     badgeText = appt.status == 'Completed' ? 'COMPLETED' : 'CONFIRMED';
                   } else if (isCancelled) {
-                    badgeColor = Colors.red;
+                    badgeColor = const Color(0xFFDC2626);
                     badgeText = 'CANCELLED';
                   } else if (statusLower == 'pending') {
                     badgeText = 'PAUSED FOR APPROVAL';
                   }
 
                   return Card(
-                    color: const Color(0xFF1E293B),
+                    color: Colors.white,
                     margin: const EdgeInsets.only(bottom: 12),
+                    elevation: 1,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                       side: BorderSide(
                         color: isConfirmed
-                            ? Colors.green.withValues(alpha: 0.4)
+                            ? const Color(0xFF16A34A).withValues(alpha: 0.4)
                             : (isCancelled
-                                ? Colors.red.withValues(alpha: 0.4)
-                                : Colors.amber.withValues(alpha: 0.4)),
+                                ? const Color(0xFFDC2626).withValues(alpha: 0.4)
+                                : const Color(0xFFD97706).withValues(alpha: 0.4)),
                       ),
                     ),
                     child: InkWell(
@@ -524,23 +587,23 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.cyan.withValues(alpha: 0.15),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFDBEAFE),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.calendar_month, color: Colors.cyanAccent, size: 20),
+                                      child: const Icon(Icons.calendar_month, color: Color(0xFF2563EB), size: 20),
                                     ),
                                     const SizedBox(width: 10),
                                     Text(
                                       'Appointment #${appt.id}',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                      style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16),
                                     ),
                                   ],
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: badgeColor.withValues(alpha: 0.2),
+                                    color: badgeColor.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(color: badgeColor),
                                   ),
@@ -555,37 +618,37 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                 ),
                               ],
                             ),
-                            const Divider(color: Colors.white12, height: 20),
+                            const Divider(color: Color(0xFFE2E8F0), height: 20),
                             Row(
                               children: [
-                                const Icon(Icons.medical_services_outlined, size: 16, color: Colors.cyanAccent),
+                                const Icon(Icons.medical_services_outlined, size: 16, color: Color(0xFF2563EB)),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Specialty: ${appt.doctorSpecialty}',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                const Icon(Icons.badge_outlined, size: 16, color: Color(0xFF34D399)),
+                                const Icon(Icons.badge_outlined, size: 16, color: Color(0xFF059669)),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Doctor: ${appt.doctorName}',
-                                  style: const TextStyle(color: Color(0xFF34D399), fontSize: 13, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(color: Color(0xFF059669), fontSize: 13, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                const Icon(Icons.description_outlined, size: 16, color: Colors.white38),
+                                const Icon(Icons.description_outlined, size: 16, color: Color(0xFF64748B)),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     'Symptoms: ${appt.normalizedRawSymptoms.isNotEmpty ? appt.normalizedRawSymptoms : appt.reasonForVisit}',
-                                    style: const TextStyle(color: Colors.white60, fontSize: 13),
+                                    style: const TextStyle(color: Color(0xFF475569), fontSize: 13),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -596,9 +659,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: const [
-                                Text('View AI Status & Trace', style: TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                Text('View AI Status & Trace', style: TextStyle(color: Color(0xFF2563EB), fontSize: 12, fontWeight: FontWeight.bold)),
                                 SizedBox(width: 4),
-                                Icon(Icons.arrow_forward_ios, color: Colors.cyanAccent, size: 12),
+                                Icon(Icons.arrow_forward_ios, color: Color(0xFF2563EB), size: 12),
                               ],
                             ),
                           ],
@@ -618,12 +681,12 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: const TextStyle(color: Color(0xFF64748B)),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white12)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.cyan)),
+      fillColor: Colors.white,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5)),
     );
   }
 }

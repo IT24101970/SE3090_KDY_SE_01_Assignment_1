@@ -73,10 +73,11 @@ class _SymptomWizardScreenState extends State<SymptomWizardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Symptom Intake & AI Triage'),
-        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('Symptom Intake & AI Triage', style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Color(0xFF2563EB)),
         elevation: 0,
       ),
       body: Consumer<TriageProvider>(
@@ -86,11 +87,11 @@ class _SymptomWizardScreenState extends State<SymptomWizardScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: Colors.cyan),
+                  CircularProgressIndicator(color: Color(0xFF2563EB)),
                   SizedBox(height: 16),
                   Text(
                     'Symptom Triage Agent is evaluating your intake...',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
                   ),
                 ],
               ),

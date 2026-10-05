@@ -25,12 +25,12 @@ class AiAgentPipelineStepper extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.cyan.withValues(alpha: 0.3)),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )
@@ -44,12 +44,12 @@ class AiAgentPipelineStepper extends StatelessWidget {
             children: [
               Row(
                 children: const [
-                  Icon(Icons.smart_toy, color: Colors.cyanAccent, size: 20),
+                  Icon(Icons.smart_toy, color: Color(0xFF2563EB), size: 20),
                   SizedBox(width: 8),
                   Text(
                     'Autonomous AI Agent Pipeline',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFF0F172A),
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -60,13 +60,13 @@ class AiAgentPipelineStepper extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.cyan.withValues(alpha: 0.2),
+                    color: const Color(0xFFDBEAFE),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     'Appt #$appointmentId',
                     style: const TextStyle(
-                      color: Colors.cyanAccent,
+                      color: Color(0xFF1E40AF),
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
@@ -80,25 +80,25 @@ class AiAgentPipelineStepper extends StatelessWidget {
           ...steps.map((step) => _buildStepTile(step)),
 
           if (assignedDoctor != null || scheduleTime != null || isSafetyVerified) ...[
-            const Divider(color: Colors.white12, height: 24),
+            const Divider(color: Color(0xFFE2E8F0), height: 24),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
+                color: const Color(0xFFF0FDF4),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                border: Border.all(color: const Color(0xFF86EFAC)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.verified, color: Colors.greenAccent, size: 18),
+                      Icon(Icons.verified, color: Color(0xFF16A34A), size: 18),
                       SizedBox(width: 6),
                       Text(
                         'AI Orchestration Complete & Safe',
                         style: TextStyle(
-                          color: Colors.greenAccent,
+                          color: Color(0xFF15803D),
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -109,14 +109,14 @@ class AiAgentPipelineStepper extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       'Assigned Doctor: $assignedDoctor',
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   ],
                   if (scheduleTime != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       'Schedule: $scheduleTime',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style: const TextStyle(color: Color(0xFF475569), fontSize: 12),
                     ),
                   ],
                 ],
@@ -134,24 +134,24 @@ class AiAgentPipelineStepper extends StatelessWidget {
 
     switch (step.status) {
       case WorkflowStepStatus.completed:
-        iconColor = Colors.greenAccent;
-        statusIcon = const Icon(Icons.check_circle, color: Colors.greenAccent, size: 20);
+        iconColor = const Color(0xFF16A34A);
+        statusIcon = const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 20);
         break;
       case WorkflowStepStatus.inProgress:
-        iconColor = Colors.cyanAccent;
+        iconColor = const Color(0xFF2563EB);
         statusIcon = const SizedBox(
           width: 16,
           height: 16,
-          child: CircularProgressIndicator(color: Colors.cyanAccent, strokeWidth: 2),
+          child: CircularProgressIndicator(color: Color(0xFF2563EB), strokeWidth: 2),
         );
         break;
       case WorkflowStepStatus.failed:
-        iconColor = Colors.redAccent;
-        statusIcon = const Icon(Icons.error, color: Colors.redAccent, size: 20);
+        iconColor = const Color(0xFFDC2626);
+        statusIcon = const Icon(Icons.error, color: Color(0xFFDC2626), size: 20);
         break;
       case WorkflowStepStatus.pending:
-        iconColor = Colors.white38;
-        statusIcon = const Icon(Icons.radio_button_unchecked, color: Colors.white38, size: 20);
+        iconColor = const Color(0xFF94A3B8);
+        statusIcon = const Icon(Icons.radio_button_unchecked, color: Color(0xFF94A3B8), size: 20);
         break;
     }
 
@@ -175,7 +175,7 @@ class AiAgentPipelineStepper extends StatelessWidget {
                     Text(
                       'Stage ${step.stepNumber}: ${step.title}',
                       style: TextStyle(
-                        color: step.status == WorkflowStepStatus.pending ? Colors.white54 : Colors.white,
+                        color: step.status == WorkflowStepStatus.pending ? const Color(0xFF64748B) : const Color(0xFF0F172A),
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -195,7 +195,7 @@ class AiAgentPipelineStepper extends StatelessWidget {
                   Text(
                     step.detail!,
                     style: const TextStyle(
-                      color: Colors.white70,
+                      color: Color(0xFF475569),
                       fontSize: 11,
                       height: 1.3,
                     ),

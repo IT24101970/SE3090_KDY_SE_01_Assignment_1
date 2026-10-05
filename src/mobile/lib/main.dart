@@ -40,20 +40,23 @@ class ChannelCenterMobileApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.indigo,
-            brightness: Brightness.dark,
+            seedColor: const Color(0xFF2563EB),
+            brightness: Brightness.light,
           ),
-          scaffoldBackgroundColor: const Color(0xFF0F172A),
+          scaffoldBackgroundColor: const Color(0xFFF8FAFC),
           appBarTheme: const AppBarTheme(
             centerTitle: false,
             elevation: 0,
-            backgroundColor: Color(0xFF1E293B),
-            foregroundColor: Colors.white,
+            backgroundColor: Colors.white,
+            foregroundColor: Color(0xFF0F172A),
+            iconTheme: IconThemeData(color: Color(0xFF2563EB)),
           ),
           cardTheme: CardThemeData(
-            elevation: 2,
+            elevation: 1,
+            color: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
           ),
         ),
@@ -61,9 +64,9 @@ class ChannelCenterMobileApp extends StatelessWidget {
           builder: (context, auth, _) {
             if (auth.isLoading) {
               return const Scaffold(
-                backgroundColor: Color(0xFF0F172A),
+                backgroundColor: Color(0xFFF8FAFC),
                 body: Center(
-                  child: CircularProgressIndicator(color: Colors.cyan),
+                  child: CircularProgressIndicator(color: Color(0xFF2563EB)),
                 ),
               );
             }
