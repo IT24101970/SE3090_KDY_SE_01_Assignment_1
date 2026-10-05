@@ -10,6 +10,8 @@ jobs:
   build-apk:
     name: Build Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,3 +43,13 @@ jobs:
         with:
           name: channel-center-mobile-release-apk
           path: src/mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "ChannelCenter Mobile App v1.0.0"
+          body: "Official Android release APK for ChannelCenter Mobile Application."
+          files: src/mobile/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
