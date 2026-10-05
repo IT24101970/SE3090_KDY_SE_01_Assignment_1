@@ -22,17 +22,45 @@ var appPort = Environment.GetEnvironmentVariable("PORT")
 builder.WebHost.UseUrls($"http://0.0.0.0:{appPort}", "http://0.0.0.0:80");
 
 // ── Connection String ────────────────────────────────────────────────────────
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? builder.Configuration["DefaultConnection"]
     ?? "Host=localhost;Database=channel_center_db;Username=postgres;Password=postgres";
 
-// Clean up psql prefix or quotes if pasted directly from terminal command
-connectionString = connectionString.Trim();
-if (connectionString.StartsWith("psql ")) connectionString = connectionString.Substring(5).Trim();
-if ((connectionString.StartsWith("'") && connectionString.EndsWith("'")) ||
-    (connectionString.StartsWith("\"") && connectionString.EndsWith("\"")))
+rawConnectionString = rawConnectionString.Trim();
+if (rawConnectionString.StartsWith("psql ")) rawConnectionString = rawConnectionString.Substring(5).Trim();
+if ((rawConnectionString.StartsWith("'") && rawConnectionString.EndsWith("'")) ||
+    (rawConnectionString.StartsWith("\"") && rawConnectionString.EndsWith("\"")))
 {
-    connectionString = connectionString.Substring(1, connectionString.Length - 2).Trim();
+    rawConnectionString = rawConnectionString.Substring(1, rawConnectionString.Length - 2).Trim();
+}
+
+string connectionString;
+if (rawConnectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) || 
+    rawConnectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+{
+    try
+    {
+        var uri = new Uri(rawConnectionString);
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var user = Uri.UnescapeDataString(userInfo[0]);
+        var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+        var host = uri.Host;
+        var port = uri.Port > 0 ? uri.Port : 5432;
+        var dbName = uri.AbsolutePath.TrimStart('/');
+
+        connectionString = $"Host={host};Port={port};Database={dbName};Username={user};Password={pass};SslMode=Require;Trust Server Certificate=true;";
+    }
+    catch
+    {
+        connectionString = rawConnectionString;
+    }
+}
+else
+{
+    connectionString = rawConnectionString
+        .Replace("&channel_binding=require", "", StringComparison.OrdinalIgnoreCase)
+        .Replace("?channel_binding=require", "", StringComparison.OrdinalIgnoreCase)
+        .Replace("channel_binding=require", "", StringComparison.OrdinalIgnoreCase);
 }
 
 // ── Core MVC & Routing ───────────────────────────────────────────────────────
