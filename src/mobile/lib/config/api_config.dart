@@ -2,9 +2,10 @@ import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   // Default base URL for ASP.NET Core API server
-  // Uses 10.0.2.2:5066 for Android Emulator, localhost:5066 for Desktop/iOS/Web
   static String get baseUrl {
-    if (kIsWeb) {
+    if (kReleaseMode) {
+      return 'https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net/api';
+    } else if (kIsWeb) {
       return 'http://localhost:5066/api';
     } else if (defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:5066/api';
