@@ -7,6 +7,9 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'src/backend/**'
+      - '.github/workflows/master_channel-center-api.yml'
   workflow_dispatch:
 
 jobs:

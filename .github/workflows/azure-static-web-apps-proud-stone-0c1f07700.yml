@@ -4,10 +4,15 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'src/web/**'
+      - '.github/workflows/azure-static-web-apps-proud-stone-0c1f07700.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - master
+    paths:
+      - 'src/web/**'
 
 jobs:
   build_and_deploy_job:

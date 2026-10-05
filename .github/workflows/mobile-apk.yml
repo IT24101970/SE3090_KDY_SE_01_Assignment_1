@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'src/mobile/**'
+      - '.github/workflows/mobile-apk.yml'
   workflow_dispatch:
 
 jobs:

@@ -8,6 +8,9 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'src/ai-service/**'
+      - '.github/workflows/master_channel-center-ai-service.yml'
   workflow_dispatch:
 
 jobs:
