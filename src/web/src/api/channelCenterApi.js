@@ -1,7 +1,15 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 
-  (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')
-    ? 'https://channel-center-api.azurewebsites.net'
-    : 'http://localhost:5066');
+const getApiBase = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && typeof envUrl === 'string' && !envUrl.includes('localhost')) {
+    return envUrl;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://channel-center-api.azurewebsites.net';
+  }
+  return 'http://localhost:5066';
+};
+
+const API_BASE = getApiBase();
 
 const workflowStatuses = ['Running', 'PausedForApproval', 'Completed', 'Terminated'];
 const approvalDecisions = ['Approved', 'Rejected', 'Revised'];
