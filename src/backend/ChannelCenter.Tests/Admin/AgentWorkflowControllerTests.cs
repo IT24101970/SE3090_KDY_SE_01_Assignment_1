@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ChannelCenter.API.Controllers.Admin;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.Admin;
 using ChannelCenter.Tests;
 using Xunit;
 
@@ -29,7 +30,7 @@ public class AgentWorkflowControllerTests
         });
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Act
         var result = await controller.GetWorkflows();
@@ -55,7 +56,7 @@ public class AgentWorkflowControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Act
         var result = await controller.GetWorkflows(status: WorkflowStatus.PausedForApproval);
@@ -102,7 +103,7 @@ public class AgentWorkflowControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Act
         var result = await controller.GetWorkflowById(workflow.Id);
@@ -120,7 +121,7 @@ public class AgentWorkflowControllerTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
 
         // Act
         var result = await controller.GetWorkflowById(999);
@@ -130,7 +131,7 @@ public class AgentWorkflowControllerTests
     }
 
     [Fact]
-    public async Task ApproveWorkflow_ApprovedDecision_TransitionsToRunning_AndCreatesApprovalRecord()
+    public async Task ApproveWorkflow_ApprovedDecision_TransitionsToCompleted_AndCreatesApprovalRecord()
     {
         // Arrange
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
@@ -146,7 +147,7 @@ public class AgentWorkflowControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new WorkflowApprovalRequestDto
         {
             Decision = ApprovalDecision.Approved,
@@ -160,12 +161,12 @@ public class AgentWorkflowControllerTests
         var okResult = Assert.IsType<OkObjectResult>(result);
         var responseDto = Assert.IsType<WorkflowApprovalResponseDto>(okResult.Value);
         Assert.Equal(ApprovalDecision.Approved, responseDto.Decision);
-        Assert.Equal(WorkflowStatus.Running, responseDto.UpdatedWorkflowStatus);
+        Assert.Equal(WorkflowStatus.Completed, responseDto.UpdatedWorkflowStatus);
 
         // Verify DB updates
         var updated = await context.AgentWorkflows.FindAsync(workflow.Id);
         Assert.NotNull(updated);
-        Assert.Equal(WorkflowStatus.Running, updated.Status);
+        Assert.Equal(WorkflowStatus.Completed, updated.Status);
 
         var approval = context.AdminApprovals.FirstOrDefault(a => a.WorkflowId == workflow.Id);
         Assert.NotNull(approval);
@@ -186,7 +187,7 @@ public class AgentWorkflowControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new WorkflowApprovalRequestDto
         {
             Decision = ApprovalDecision.Rejected
@@ -218,7 +219,7 @@ public class AgentWorkflowControllerTests
         context.AgentWorkflows.Add(workflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new WorkflowApprovalRequestDto
         {
             Decision = ApprovalDecision.Revised
@@ -246,7 +247,7 @@ public class AgentWorkflowControllerTests
         context.AgentWorkflows.Add(completedWorkflow);
         await context.SaveChangesAsync();
 
-        var controller = new AgentWorkflowsController(context);
+        var controller = new AgentWorkflowsController(new AgentWorkflowService(context));
         var request = new WorkflowApprovalRequestDto { Decision = ApprovalDecision.Approved };
 
         // Act

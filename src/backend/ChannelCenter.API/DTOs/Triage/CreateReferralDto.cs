@@ -8,5 +8,5 @@ public class CreateReferralDto
     public int TriageId { get; set; }
 
     [Required]
-    public int TargetSpecialtyId { get; set; }
+    public string TargetSpecialty { get; set; } = string.Empty;
 }

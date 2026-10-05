@@ -1,6 +1,5 @@
-//using ChannelCenter.API.DTOs.Common;
+using ChannelCenter.API.DTOs.Common;
 using ChannelCenter.API.DTOs.Patient;
-using ChannelCenter.API.DTOs.Admin;
 
 namespace ChannelCenter.API.Services.Patient;
 

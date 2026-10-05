@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ChannelCenter.API.Controllers;
 using ChannelCenter.API.DTOs.IntakeAgent;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.IntakeAgent;
 using Xunit;
 
 namespace ChannelCenter.Tests.IntakeAgent;
@@ -30,7 +31,7 @@ public class IntakeAgentControllerTests
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
         var patient = await CreateSamplePatientAsync(context);
-        var controller = new IntakeAgentController(context);
+        var controller = new IntakeAgentController(new IntakeAgentService(context));
 
         var request = new IntakeProcessRequestDto
         {
@@ -51,7 +52,7 @@ public class IntakeAgentControllerTests
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
         var patient = await CreateSamplePatientAsync(context);
-        var controller = new IntakeAgentController(context);
+        var controller = new IntakeAgentController(new IntakeAgentService(context));
 
         var result = await controller.ToolGetPatientHistory(new ToolPatientIdRequest { PatientId = patient.Id });
 
@@ -64,7 +65,7 @@ public class IntakeAgentControllerTests
     public async Task ToolFormatSummary_ReturnsJsonContent_WithParsedKeywords()
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new IntakeAgentController(context);
+        var controller = new IntakeAgentController(new IntakeAgentService(context));
 
         var result = await controller.ToolFormatIntakeSummary(new ToolRawTextRequest
         {

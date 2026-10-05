@@ -213,5 +213,54 @@ public static class DataSeeder
             context.AgentWorkflows.AddRange(wf1, wf2);
             await context.SaveChangesAsync();
         }
+
+        // ── 9. Seed Sample Patients, Appointments, Triage Assessments & Referrals ──
+        if (!context.Patients.Any())
+        {
+            var p1 = new Patient { Name = "Alice Perera", NIC = "199245102930", Gender = "Female", PhoneNumber = "+94771234567", DateOfBirth = new DateTime(1992, 5, 14), BloodGroup = "A+", CreatedAt = seedDate, UpdatedAt = seedDate };
+            var p2 = new Patient { Name = "Kavindu Silva", NIC = "198812304958", Gender = "Male", PhoneNumber = "+94719876543", DateOfBirth = new DateTime(1988, 11, 20), BloodGroup = "O+", CreatedAt = seedDate, UpdatedAt = seedDate };
+            var p3 = new Patient { Name = "Nimali Fernando", NIC = "199584739201", Gender = "Female", PhoneNumber = "+94754567890", DateOfBirth = new DateTime(1995, 3, 8), BloodGroup = "B+", CreatedAt = seedDate, UpdatedAt = seedDate };
+            var p4 = new Patient { Name = "Sunil Jayasinghe", NIC = "197530491029", Gender = "Male", PhoneNumber = "+94701122334", DateOfBirth = new DateTime(1975, 8, 30), BloodGroup = "AB+", CreatedAt = seedDate, UpdatedAt = seedDate };
+
+            context.Patients.AddRange(p1, p2, p3, p4);
+            await context.SaveChangesAsync();
+
+            var firstSchedule = context.DoctorSchedules.FirstOrDefault();
+            int scheduleId = firstSchedule?.Id ?? 1;
+
+            var app1 = new Appointment { PatientId = p1.Id, DoctorId = doctor1.Id, ScheduleId = scheduleId, AppointmentDate = DateTime.UtcNow.Date.AddDays(1).AddHours(9), Status = AppointmentStatus.Confirmed, ReasonForVisit = "Acute chest pain & shortness of breath", CreatedAt = seedDate, UpdatedAt = seedDate };
+            var app2 = new Appointment { PatientId = p2.Id, DoctorId = doctor2.Id, ScheduleId = scheduleId, AppointmentDate = DateTime.UtcNow.Date.AddDays(2).AddHours(10), Status = AppointmentStatus.Pending, ReasonForVisit = "Severe migraine with dizziness", CreatedAt = seedDate, UpdatedAt = seedDate };
+            var app3 = new Appointment { PatientId = p3.Id, DoctorId = doctor3.Id, ScheduleId = scheduleId, AppointmentDate = DateTime.UtcNow.Date.AddDays(3).AddHours(11), Status = AppointmentStatus.Confirmed, ReasonForVisit = "Skin rash & itching", CreatedAt = seedDate, UpdatedAt = seedDate };
+            var app4 = new Appointment { PatientId = p4.Id, DoctorId = doctor1.Id, ScheduleId = scheduleId, AppointmentDate = DateTime.UtcNow.Date.AddDays(4).AddHours(14), Status = AppointmentStatus.Pending, ReasonForVisit = "Right knee pain & swelling", CreatedAt = seedDate, UpdatedAt = seedDate };
+
+            context.Appointments.AddRange(app1, app2, app3, app4);
+            await context.SaveChangesAsync();
+
+            var ta1 = new TriageAssessment { AppointmentId = app1.Id, RawSymptoms = "Acute severe chest pain radiating to left shoulder with shortness of breath", UrgencyScore = 95, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialty = "Cardiology", ReasoningTrace = "[Symptom Triage Agent] Parsed 2 symptom entries for raw symptoms: 'Acute severe chest pain radiating to left shoulder'. Highest severity score: 9/10. Emergency red flags: Detected. Matched specialty: Cardiology. Assessed urgency level: Emergency (Score: 95/100).", CreatedAt = seedDate, UpdatedAt = seedDate };
+            var ta2 = new TriageAssessment { AppointmentId = app2.Id, RawSymptoms = "Severe migraine headache with sudden dizziness and light sensitivity", UrgencyScore = 82, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialty = "Neurology", ReasoningTrace = "[Symptom Triage Agent] Parsed 2 symptom entries. Highest severity rating: 8/10. Matched specialty: Neurology. Emergency red flags: Detected. Assessed urgency level: Emergency.", CreatedAt = seedDate.AddHours(1), UpdatedAt = seedDate.AddHours(1) };
+            var ta3 = new TriageAssessment { AppointmentId = app3.Id, RawSymptoms = "Red itching skin rash on forearm after contacting new detergent", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Medium, RecommendedSpecialty = "Dermatology", ReasoningTrace = "[Symptom Triage Agent] Parsed 1 symptom entry. Highest severity rating: 4/10. Emergency red flags: None. Matched specialty: Dermatology. Assessed urgency level: Medium.", CreatedAt = seedDate.AddHours(2), UpdatedAt = seedDate.AddHours(2) };
+            var ta4 = new TriageAssessment { AppointmentId = app4.Id, RawSymptoms = "Right knee pain and swelling following basketball game", UrgencyScore = 65, UrgencyLevel = UrgencyLevel.High, RecommendedSpecialty = "Orthopedics", ReasoningTrace = "[Symptom Triage Agent] Parsed 1 symptom entry. Highest severity rating: 6/10. Matched specialty: Orthopedics. Assessed urgency level: High.", CreatedAt = seedDate.AddHours(3), UpdatedAt = seedDate.AddHours(3) };
+
+            context.TriageAssessments.AddRange(ta1, ta2, ta3, ta4);
+            await context.SaveChangesAsync();
+
+            context.SymptomLogs.AddRange(
+                new SymptomLog { TriageId = ta1.Id, SymptomKeyword = "chest pain", SeverityRating = 9, DurationInDays = 1, CreatedAt = seedDate, UpdatedAt = seedDate },
+                new SymptomLog { TriageId = ta1.Id, SymptomKeyword = "shortness of breath", SeverityRating = 8, DurationInDays = 1, CreatedAt = seedDate, UpdatedAt = seedDate },
+                new SymptomLog { TriageId = ta2.Id, SymptomKeyword = "migraine", SeverityRating = 8, DurationInDays = 2, CreatedAt = seedDate, UpdatedAt = seedDate },
+                new SymptomLog { TriageId = ta2.Id, SymptomKeyword = "dizziness", SeverityRating = 7, DurationInDays = 1, CreatedAt = seedDate, UpdatedAt = seedDate },
+                new SymptomLog { TriageId = ta3.Id, SymptomKeyword = "skin rash", SeverityRating = 4, DurationInDays = 3, CreatedAt = seedDate, UpdatedAt = seedDate },
+                new SymptomLog { TriageId = ta4.Id, SymptomKeyword = "knee pain", SeverityRating = 6, DurationInDays = 2, CreatedAt = seedDate, UpdatedAt = seedDate }
+            );
+
+            context.Referrals.AddRange(
+                new Referral { TriageId = ta1.Id, TargetSpecialty = "Cardiology", Status = ReferralStatus.Generated, CreatedAt = seedDate, UpdatedAt = seedDate },
+                new Referral { TriageId = ta2.Id, TargetSpecialty = "Neurology", Status = ReferralStatus.Reviewed, CreatedAt = seedDate.AddHours(1), UpdatedAt = seedDate.AddHours(1) },
+                new Referral { TriageId = ta3.Id, TargetSpecialty = "Dermatology", Status = ReferralStatus.Assigned, CreatedAt = seedDate.AddHours(2), UpdatedAt = seedDate.AddHours(2) },
+                new Referral { TriageId = ta4.Id, TargetSpecialty = "Orthopedics", Status = ReferralStatus.Generated, CreatedAt = seedDate.AddHours(3), UpdatedAt = seedDate.AddHours(3) }
+            );
+
+            await context.SaveChangesAsync();
+        }
     }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AiScheduleOptimizerModal from './AiScheduleOptimizerModal';
 
 const API_BASE = 'http://localhost:5066/api/doctor-scheduling';
 
@@ -9,6 +10,8 @@ export default function DoctorSchedulesTab() {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState(null);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+
 
   const [formData, setFormData] = useState({
     doctorId: '',
@@ -25,7 +28,7 @@ export default function DoctorSchedulesTab() {
 
     try {
       const [resSchedules, resDoctors, resRooms, resLeaves] = await Promise.all([
-        fetch(`${API_BASE}/doctorsschedules`),
+        fetch(`${API_BASE}/doctorschedules`),
         fetch(`${API_BASE}/doctors`),
         fetch(`${API_BASE}/consultationrooms`),
         fetch(`${API_BASE}/doctorleaves`)
@@ -123,13 +126,17 @@ export default function DoctorSchedulesTab() {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/doctorsschedules`, {
+      const res = await fetch(`${API_BASE}/doctorschedules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
-      const result = await res.json();
+      const text = await res.text();
+      let result = {};
+      if (text) {
+        try { result = JSON.parse(text); } catch { result = { message: text }; }
+      }
 
       if (!res.ok) {
         setAlert({ type: 'error', text: `⚠️ ${result.message || 'Failed to schedule session.'}` });
@@ -137,9 +144,21 @@ export default function DoctorSchedulesTab() {
       }
 
       setAlert({ type: 'success', text: '✨ Schedule session created & saved in PostgreSQL Database!' });
-      
-      const updatedSchedules = [...schedules, result];
-      setSchedules(updatedSchedules);
+
+      const newSchedule = result.id ? result : {
+        id: Date.now(),
+        doctorId: selectedDocId,
+        doctorName: doctors.find((d) => d.id === selectedDocId)?.doctorName || 'Doctor',
+        specialtyName: doctors.find((d) => d.id === selectedDocId)?.specialtyName || 'Specialist',
+        roomId: selectedRoomId,
+        roomName: selectedRoom?.roomName || 'Room',
+        floor: selectedRoom?.floor || '1st Floor',
+        startTime: startDt.toISOString(),
+        endTime: endDt.toISOString(),
+        maxPatients: Number(formData.maxPatients)
+      };
+
+      setSchedules((prev) => [...prev, newSchedule]);
     } catch (err) {
       setAlert({ type: 'error', text: `Unable to save schedule: ${err.message}` });
     }
@@ -147,7 +166,7 @@ export default function DoctorSchedulesTab() {
 
   const handleDeleteSchedule = async (id) => {
     try {
-      await fetch(`${API_BASE}/doctorsschedules/${id}`, {
+      await fetch(`${API_BASE}/doctorschedules/${id}`, {
         method: 'DELETE'
       });
     } catch (e) {
@@ -239,50 +258,81 @@ export default function DoctorSchedulesTab() {
           </div>
         </div>
 
-        <button type="submit" className="ds-btn ds-btn-coral">
-          Assign Room & Save Schedule
-        </button>
+        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+          <button type="submit" className="ds-btn ds-btn-coral">
+            Assign Room & Save Schedule
+          </button>
+
+          {/* <button
+            type="button"
+            className="ds-btn"
+            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: 'white', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8 }}
+            onClick={() => setIsAiModalOpen(true)}
+          >
+            ⚡ Launch AI Schedule Optimizer Agent
+          </button> */}
+        </div>
       </form>
 
-      <h3 style={{ marginBottom: 16, color: 'var(--ds-navy-dark)' }}>
+      <AiScheduleOptimizerModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        doctors={doctors}
+        rooms={rooms}
+        onScheduleCreated={(newSched) => {
+          setSchedules((prev) => [...prev, newSched]);
+        }}
+      />
+
+      <h3 className="ds-section-title">
         📋 Active Channel Schedules ({schedules.length})
       </h3>
 
       {loading ? (
-        <div style={{ padding: 20, textAlign: 'center', color: '#627d98' }}>Loading schedules...</div>
+        <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)' }}>Loading schedules...</div>
       ) : (
         <div className="ds-grid">
-          {schedules.map((s) => (
-            <div key={s.id} className="ds-card">
-              <div>
-                <div className="ds-card-header">
-                  <h4 className="ds-card-title">{s.doctorName}</h4>
-                  <span className="ds-badge ds-badge-approved">{s.specialtyName}</span>
+          {schedules.map((s) => {
+            const isExpired = s.isExpired !== undefined ? s.isExpired : (new Date(s.endTime) < new Date());
+            return (
+              <div key={s.id} className="ds-card" style={{ opacity: isExpired ? 0.75 : 1, borderLeft: isExpired ? '4px solid #94a3b8' : '4px solid var(--teal)' }}>
+                <div>
+                  <div className="ds-card-header">
+                    <h4 className="ds-card-title">{s.doctorName}</h4>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span className="ds-badge ds-badge-approved">{s.specialtyName}</span>
+                      {isExpired ? (
+                        <span className="ds-badge" style={{ background: 'var(--canvas)', color: 'var(--muted)', border: '1px solid var(--line)' }}>Expired</span>
+                      ) : (
+                        <span className="ds-badge ds-badge-active">Active</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 8 }}>
+                    <strong>📍 Consultation Room:</strong> {s.roomName} ({s.floor})
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 6 }}>
+                    <strong>⏰ Start:</strong> {new Date(s.startTime).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: 6 }}>
+                    <strong>⏳ End:</strong> {new Date(s.endTime).toLocaleString()}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 8 }}>
-                  <strong>📍 Consultation Room:</strong> {s.roomName} ({s.floor})
-                </div>
-                <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
-                  <strong>⏰ Start:</strong> {new Date(s.startTime).toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.9rem', color: '#486581', marginBottom: 6 }}>
-                  <strong>⏳ End:</strong> {new Date(s.endTime).toLocaleString()}
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--navy)' }}>
+                    👥 Capacity: {s.maxPatients} Patients
+                  </span>
+                  <button
+                    className="ds-btn ds-btn-danger"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                    onClick={() => handleDeleteSchedule(s.id)}
+                  >
+                    Remove Session
+                  </button>
                 </div>
               </div>
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--ds-navy-primary)' }}>
-                  👥 Capacity: {s.maxPatients} Patients
-                </span>
-                <button
-                  className="ds-btn ds-btn-danger"
-                  style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                  onClick={() => handleDeleteSchedule(s.id)}
-                >
-                  Remove Session
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

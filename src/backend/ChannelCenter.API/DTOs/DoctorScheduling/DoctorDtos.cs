@@ -17,6 +17,9 @@ public class CreateDoctorDto
     public int UserId { get; set; }
     public int SpecialtyId { get; set; }
     public string Qualifications { get; set; } = string.Empty;
+    public string? DoctorName { get; set; }
+    public string? Email { get; set; }
+    public string? Password { get; set; }
 }
 
 public class UpdateDoctorDto

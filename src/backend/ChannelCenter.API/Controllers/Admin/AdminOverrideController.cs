@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Services.Admin;
@@ -14,16 +15,11 @@ public class AdminOverrideController : ControllerBase
 {
     private readonly IAdminOverrideService _overrideService;
 
+    [ActivatorUtilitiesConstructor]
     public AdminOverrideController(IAdminOverrideService overrideService)
     {
         _overrideService = overrideService;
     }
-
-    // Convenience constructor for tests utilizing in-memory DbContext directly
-    // public AdminOverrideController(ApplicationDbContext context)
-    //     : this(new AdminOverrideService(context))
-    // {
-    // }
 
     // POST: api/admin/overrides/workflows/{id}/cancel
     [HttpPost("workflows/{id}/cancel")]

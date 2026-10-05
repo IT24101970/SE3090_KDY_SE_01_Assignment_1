@@ -1,12 +1,40 @@
 using ChannelCenter.API.DTOs.Appointment;
 using ChannelCenter.API.Models;
 using ChannelCenter.API.Services.Appointment;
+using ChannelCenter.API.Services.SafetyAuditor;
+using ChannelCenter.API.DTOs.SafetyAuditor;
 using Xunit;
 
 namespace ChannelCenter.Tests.Appointments;
 
 public class AppointmentServiceTests
 {
+    private sealed class RecordingSafetyAuditor : ISafetyAuditorService
+    {
+        public int Calls { get; private set; }
+
+        public Task<SafetyAuditResponseDto> StartAsync(
+            int workflowId,
+            SafetyAuditStartRequestDto request,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(new SafetyAuditResponseDto
+            {
+                WorkflowId = workflowId,
+                CorrelationId = request.CorrelationId,
+                Status = WorkflowStatus.Completed,
+                RiskLevel = "Low"
+            });
+        }
+
+        public Task<SafetyAuditResponseDto> ApplyCallbackAsync(
+            int workflowId,
+            SafetyAuditResponseDto response,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(response);
+    }
+
     private static async Task<(Patient patient, Doctor doctor, DoctorSchedule schedule)> SetupBaseDataAsync(ChannelCenter.API.Data.ApplicationDbContext context, int maxPatients = 5)
     {
         var user = new User { FullName = "Dr. Silva", Email = "silva@hospital.com", Role = UserRole.Doctor };
@@ -49,6 +77,7 @@ public class AppointmentServiceTests
             NIC = "911223344V",
             Email = "john.p@gmail.com",
             PhoneNumber = "0771234567",
+            EmergencyContact = "0771111111",
             Gender = "Male",
             DateOfBirth = DateTime.UtcNow.AddYears(-35)
         };
@@ -81,6 +110,31 @@ public class AppointmentServiceTests
         Assert.NotNull(data);
         Assert.Equal(AppointmentStatus.Pending, data.Status);
         Assert.Equal("Annual cardiac checkup", data.ReasonForVisit);
+    }
+
+    [Fact]
+    public async Task CreateAppointmentAsync_SavesBeforeSynchronousSafetyAudit_WithoutChangingStatus()
+    {
+        using var context = TestDbContextFactory.CreateInMemoryDbContext();
+        var (patient, doctor, schedule) = await SetupBaseDataAsync(context);
+        var auditor = new RecordingSafetyAuditor();
+        var service = new AppointmentService(context, auditor);
+
+        var (success, _, data) = await service.CreateAppointmentAsync(new CreateAppointmentDto
+        {
+            PatientId = patient.Id,
+            DoctorId = doctor.Id,
+            ScheduleId = schedule.Id,
+            AppointmentDate = schedule.StartTime,
+            ReasonForVisit = "Synchronous audit"
+        });
+
+        Assert.True(success);
+        Assert.Equal(AppointmentStatus.Pending, data!.Status);
+        Assert.Equal(1, auditor.Calls);
+        var saved = await context.Appointments.FindAsync(data.Id);
+        var workflow = context.AgentWorkflows.Single(w => w.AppointmentId == saved!.Id);
+        Assert.Equal(WorkflowStatus.Completed, workflow.Status);
     }
 
     [Fact]
@@ -221,5 +275,86 @@ public class AppointmentServiceTests
         Assert.Equal(3, slot.BookedSlots);
         Assert.Equal(7, slot.AvailableSlots);
         Assert.True(slot.IsAvailable);
+    }
+
+    [Fact(DisplayName = "CASE 1 — Registered patient: natural language ReasonForVisit processed by Intake Agent into TriageAssessment")]
+    public async Task CreateAppointmentAsync_RegisteredPatient_ExtractsSymptomsAndCreatesTriageAssessment()
+    {
+        using var context = TestDbContextFactory.CreateInMemoryDbContext();
+        var (patient, doctor, schedule) = await SetupBaseDataAsync(context);
+        var intakeAgentService = new ChannelCenter.API.Services.IntakeAgent.IntakeAgentService(context);
+        var service = new AppointmentService(context, intakeAgentService, null);
+
+        const string naturalLanguageReason = "I have a severe headache and dizziness since yesterday.";
+
+        var dto = new CreateAppointmentDto
+        {
+            PatientId = patient.Id,
+            DoctorId = doctor.Id,
+            ScheduleId = schedule.Id,
+            AppointmentDate = schedule.StartTime,
+            ReasonForVisit = naturalLanguageReason
+        };
+
+        var (success, error, data) = await service.CreateAppointmentAsync(dto);
+
+        Assert.True(success, $"Appointment creation failed: {error}");
+        Assert.NotNull(data);
+
+        // Original ReasonForVisit remains unchanged in Appointment
+        Assert.Equal(naturalLanguageReason, data.ReasonForVisit);
+
+        var savedAppt = await context.Appointments.FindAsync(data.Id);
+        Assert.NotNull(savedAppt);
+        Assert.Equal(naturalLanguageReason, savedAppt.ReasonForVisit);
+
+        // TriageAssessment created and correctly linked via AppointmentId FK
+        var triage = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            context.TriageAssessments, t => t.AppointmentId == savedAppt.Id);
+        Assert.NotNull(triage);
+        Assert.Equal(savedAppt.Id, triage.AppointmentId);
+
+        // RawSymptoms contains patient-expressed / normalized symptoms (headache, dizziness)
+        Assert.Contains("headache", triage.RawSymptoms, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("dizziness", triage.RawSymptoms, StringComparison.OrdinalIgnoreCase);
+
+        // Response DTO includes normalized symptoms
+        Assert.NotNull(data.NormalizedRawSymptoms);
+        Assert.Contains("headache", data.NormalizedRawSymptoms, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "CASE 9 — Safe failure: agent failure does not write fake symptoms")]
+    public async Task CreateAppointmentAsync_AgentFailure_DoesNotWriteFakeSymptoms()
+    {
+        using var context = TestDbContextFactory.CreateInMemoryDbContext();
+        var (patient, doctor, schedule) = await SetupBaseDataAsync(context);
+        
+        // Remove phone number to make patient ineligible for intake processing tool
+        patient.PhoneNumber = "";
+        await context.SaveChangesAsync();
+
+        var intakeAgentService = new ChannelCenter.API.Services.IntakeAgent.IntakeAgentService(context);
+        var service = new AppointmentService(context, intakeAgentService, null);
+
+        var dto = new CreateAppointmentDto
+        {
+            PatientId = patient.Id,
+            DoctorId = doctor.Id,
+            ScheduleId = schedule.Id,
+            AppointmentDate = schedule.StartTime,
+            ReasonForVisit = "My arm hurts"
+        };
+
+        var (success, error, data) = await service.CreateAppointmentAsync(dto);
+
+        // Appointment is saved reliably
+        Assert.True(success);
+        Assert.NotNull(data);
+        Assert.Equal("My arm hurts", data.ReasonForVisit);
+
+        // No fake triage assessment with invented symptoms created
+        var triage = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            context.TriageAssessments, t => t.AppointmentId == data.Id);
+        Assert.Null(triage);
     }
 }

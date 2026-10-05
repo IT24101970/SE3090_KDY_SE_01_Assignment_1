@@ -1,10 +1,13 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
+using ChannelCenter.API.DTOs.SafetyAuditor;
 using ChannelCenter.API.Models;
 using ChannelCenter.API.Services.Admin;
+using ChannelCenter.API.Services.SafetyAuditor;
 
 namespace ChannelCenter.API.Controllers.Admin;
 
@@ -14,17 +17,16 @@ namespace ChannelCenter.API.Controllers.Admin;
 public class AgentWorkflowsController : ControllerBase
 {
     private readonly IAgentWorkflowService _workflowService;
+    private readonly ISafetyAuditorService? _safetyAuditorService;
     
-    public AgentWorkflowsController(IAgentWorkflowService workflowService)
+    [ActivatorUtilitiesConstructor]
+    public AgentWorkflowsController(
+        IAgentWorkflowService workflowService,
+        ISafetyAuditorService? safetyAuditorService = null)
     {
         _workflowService = workflowService;
+        _safetyAuditorService = safetyAuditorService;
     }
-
-    // Convenience constructor for tests utilizing in-memory DbContext directly
-    // public AgentWorkflowsController(ApplicationDbContext context)
-    //     : this(new AgentWorkflowService(context))
-    // {
-    // }
 
     // GET: api/admin/workflows (optionally filter by ?status=PausedForApproval)
     [HttpGet]
@@ -90,6 +92,29 @@ public class AgentWorkflowsController : ControllerBase
             workflowId = id 
         });
     }
+
+    // POST: api/admin/workflows/{id}/safety-audit
+    [HttpPost("{id}/safety-audit")]
+    public async Task<IActionResult> StartSafetyAudit(
+        int id,
+        [FromBody] SafetyAuditStartRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        if (_safetyAuditorService == null)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+
+        var response = await _safetyAuditorService.StartAsync(id, request, cancellationToken);
+        return response.Status == WorkflowStatus.SafeFailed
+            ? StatusCode(StatusCodes.Status502BadGateway, response)
+            : Ok(response);
+    }
     
     // POST: api/admin/workflows/{id}/approve
     [HttpPost("{id}/approve")]
@@ -105,6 +130,35 @@ public class AgentWorkflowsController : ControllerBase
         int adminUserId = int.TryParse(claimValue, out var parsedId) ? parsedId : (request.AdminUserId ?? 1);
 
         var (success, errorMessage, response) = await _workflowService.ApproveWorkflowAsync(id, request, adminUserId);
+
+        if (!success)
+        {
+            if (errorMessage != null && errorMessage.Contains("not found"))
+            {
+                return NotFound(new { message = errorMessage });
+            }
+            return BadRequest(new { message = errorMessage });
+        }
+
+        return Ok(response);
+    }
+
+    [HttpPost("{id}/restart")]
+    public async Task<IActionResult> RestartWorkflow(
+        int id,
+        [FromBody] RestartWorkflowRequestDto request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var claimValue = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var adminUserId = int.TryParse(claimValue, out var parsedId)
+            ? parsedId
+            : 1;
+        var (success, errorMessage, response) =
+            await _workflowService.RestartWorkflowAsync(id, request, adminUserId);
 
         if (!success)
         {

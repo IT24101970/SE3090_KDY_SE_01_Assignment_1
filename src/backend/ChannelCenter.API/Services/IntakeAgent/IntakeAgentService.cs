@@ -1,9 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
-//using ChannelCenter.API.DTOs.Common;
 using ChannelCenter.API.DTOs.IntakeAgent;
 using ChannelCenter.API.Models;
 
@@ -35,106 +35,209 @@ public class IntakeAgentService : IIntakeAgentService
             return (false, "Raw text is required for intake processing.", null);
         }
 
+        // ΓöÇΓöÇ PROMPT-INJECTION DEFENCE ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        // rawText is treated as an UNTRUSTED DATA PAYLOAD only.
+        // This deterministic agent does NOT pass rawText to an LLM as instructions.
+        // All processing is rule-based keyword matching, so injection of text such as
+        // "Ignore previous instructions" has zero effect on agent behaviour.
+        // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+        var correlationId = Guid.NewGuid().ToString("N");
+        var sw = Stopwatch.StartNew();
+
+        // ΓöÇΓöÇ Register run in shared AgentWorkflow orchestration table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+        var workflow = new AgentWorkflow
+        {
+            Objective = $"IntakeAgent: Process intake for PatientId={request.PatientId}",
+            Status = WorkflowStatus.Running,
+            RequiresHumanApproval = false,
+            CorrelationId = correlationId,
+            ContractVersion = "intake-agent.v1",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _context.AgentWorkflows.Add(workflow);
+        await _context.SaveChangesAsync();
+
         var logIds = new List<int>();
 
-        // Step 1: Tool Call - ValidatePatientEligibility(patientId)
-        var eligibilityResult = await ToolValidatePatientEligibilityAsync(request.PatientId);
-        if (!eligibilityResult.Success)
+        try
         {
-            return (false, eligibilityResult.ErrorMessage, null);
-        }
-        var log1 = await SaveAgentLogAsync(request.PatientId, "ValidatePatientEligibility",
-            JsonSerializer.Serialize(new { patientId = request.PatientId }),
-            eligibilityResult.ResultJson,
-            "Step 1: Patient eligibility validated");
-        logIds.Add(log1.Id);
+            // Step 1: Tool Call - ValidatePatientEligibility(patientId)
+            var t1 = Stopwatch.StartNew();
+            var eligibilityResult = await ToolValidatePatientEligibilityAsync(request.PatientId);
+            t1.Stop();
 
-        // Parse eligibility
-        var eligibilityDoc = JsonDocument.Parse(eligibilityResult.ResultJson);
-        var isEligible = eligibilityDoc.RootElement.GetProperty("isEligible").GetBoolean();
-        if (!isEligible)
-        {
-            var reason = eligibilityDoc.RootElement.GetProperty("reason").GetString() ?? "Patient is not currently eligible for booking.";
-            return (false, reason, null);
-        }
+            if (!eligibilityResult.Success)
+            {
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorMessage = eligibilityResult.ErrorMessage;
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return (false, eligibilityResult.ErrorMessage, null);
+            }
 
-        // Step 2: Tool Call - GetPatientHistory(patientId)
-        var historyResult = await ToolGetPatientHistoryAsync(request.PatientId);
-        var log2 = await SaveAgentLogAsync(request.PatientId, "GetPatientHistory",
-            JsonSerializer.Serialize(new { patientId = request.PatientId }),
-            historyResult.ResultJson,
-            "Step 2: Historical medical profile and prior bookings retrieved");
-        logIds.Add(log2.Id);
+            await AddWorkflowAuditLogAsync(workflow.Id, "ValidatePatientEligibility",
+                JsonSerializer.Serialize(new { patientId = request.PatientId }),
+                eligibilityResult.ResultJson, correlationId, (int)t1.ElapsedMilliseconds);
 
-        // Step 3: Tool Call - FormatIntakeSummary(rawText)
-        var summaryResult = await ToolFormatIntakeSummaryAsync(request.RawText);
-        var log3 = await SaveAgentLogAsync(request.PatientId, "FormatIntakeSummary",
-            JsonSerializer.Serialize(new { rawText = request.RawText }),
-            summaryResult.ResultJson,
-            "Step 3: Unstructured text structured into symptoms, severity, and preferences");
-        logIds.Add(log3.Id);
+            var log1 = await SaveAgentLogAsync(request.PatientId, "ValidatePatientEligibility",
+                JsonSerializer.Serialize(new { patientId = request.PatientId }),
+                eligibilityResult.ResultJson,
+                "Step 1: Patient eligibility validated");
+            logIds.Add(log1.Id);
 
-        // Step 4: Synthesize Structured Execution Contract
-        var patient = await _context.Patients
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == request.PatientId);
+            // Parse eligibility
+            var eligibilityDoc = JsonDocument.Parse(eligibilityResult.ResultJson);
+            var isEligible = eligibilityDoc.RootElement.GetProperty("isEligible").GetBoolean();
+            if (!isEligible)
+            {
+                var reason = eligibilityDoc.RootElement.GetProperty("reason").GetString()
+                             ?? "Patient is not currently eligible for booking.";
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorCode = "PATIENT_INELIGIBLE";
+                workflow.ErrorMessage = reason;
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.FinalOutcome = $"Ineligible: {reason}";
+                workflow.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return (false, reason, null);
+            }
 
-        if (patient == null)
-        {
-            return (false, "Patient not found.", null);
-        }
+            // Step 2: Tool Call - GetPatientHistory(patientId)
+            var t2 = Stopwatch.StartNew();
+            var historyResult = await ToolGetPatientHistoryAsync(request.PatientId);
+            t2.Stop();
 
-        var parsedSummary = JsonSerializer.Deserialize<IntakeParsedSummaryPayload>(summaryResult.ResultJson, JsonOptions) ?? new IntakeParsedSummaryPayload();
+            await AddWorkflowAuditLogAsync(workflow.Id, "GetPatientHistory",
+                JsonSerializer.Serialize(new { patientId = request.PatientId }),
+                historyResult.ResultJson, correlationId, (int)t2.ElapsedMilliseconds);
 
-        var structuredResponse = new IntakeStructuredResponseDto
-        {
-            PatientId = patient.Id,
-            PatientMetadata = new ValidatedPatientMetadataDto
+            var log2 = await SaveAgentLogAsync(request.PatientId, "GetPatientHistory",
+                JsonSerializer.Serialize(new { patientId = request.PatientId }),
+                historyResult.ResultJson,
+                "Step 2: Historical medical profile and prior bookings retrieved");
+            logIds.Add(log2.Id);
+
+            // Step 3: Tool Call - FormatIntakeSummary(rawText)
+            var t3 = Stopwatch.StartNew();
+            var summaryResult = await ToolFormatIntakeSummaryAsync(request.RawText);
+            t3.Stop();
+
+            await AddWorkflowAuditLogAsync(workflow.Id, "FormatIntakeSummary",
+                JsonSerializer.Serialize(new { rawTextLength = request.RawText.Length }),
+                summaryResult.ResultJson, correlationId, (int)t3.ElapsedMilliseconds);
+
+            var log3 = await SaveAgentLogAsync(request.PatientId, "FormatIntakeSummary",
+                JsonSerializer.Serialize(new { rawText = request.RawText }),
+                summaryResult.ResultJson,
+                "Step 3: Unstructured text structured into symptoms, severity, and preferences");
+            logIds.Add(log3.Id);
+
+            // Step 4: Synthesize Structured Execution Contract
+            var patient = await _context.Patients
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == request.PatientId);
+
+            if (patient == null)
+            {
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorMessage = "Patient not found during synthesis step.";
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return (false, "Patient not found.", null);
+            }
+
+            var parsedSummary = JsonSerializer.Deserialize<IntakeParsedSummaryPayload>(
+                summaryResult.ResultJson, JsonOptions) ?? new IntakeParsedSummaryPayload();
+
+            var structuredResponse = new IntakeStructuredResponseDto
             {
                 PatientId = patient.Id,
-                Name = patient.Name,
-                Age = DateTime.UtcNow.Year - patient.DateOfBirth.Year - (DateTime.UtcNow.DayOfYear < patient.DateOfBirth.DayOfYear ? 1 : 0),
-                Gender = patient.Gender,
-                NIC = patient.NIC,
-                PhoneNumber = patient.PhoneNumber,
-                EmergencyContact = patient.EmergencyContact,
-                BloodGroup = patient.BloodGroup,
-                Allergies = patient.Allergies,
-                MedicalHistory = patient.MedicalHistory,
-                IsEligible = true,
-                EligibilityStatus = "Verified & Eligible"
-            },
-            Symptoms = parsedSummary.Symptoms,
-            SeverityFlags = new IntakeSeverityFlagsDto
-            {
-                UrgencyLevel = parsedSummary.UrgencyLevel,
-                IsEmergency = parsedSummary.IsEmergency,
-                RequiresImmediateAttention = parsedSummary.IsEmergency || parsedSummary.UrgencyLevel == UrgencyLevel.High,
-                RedFlagsDetected = parsedSummary.RedFlags,
-                UrgencyNotes = parsedSummary.UrgencyNotes
-            },
-            PreferredTimeWindows = parsedSummary.PreferredTimeWindows,
-            DoctorPreferences = new IntakeDoctorPreferencesDto
-            {
-                PreferredDoctorName = parsedSummary.PreferredDoctor,
-                PreferredSpecialty = parsedSummary.PreferredSpecialty,
-                Notes = parsedSummary.DoctorPreferenceNotes
-            },
-            SummaryText = parsedSummary.FormattedSummary,
-            ExecutionPlan = new List<string>
-            {
-                "Step 1: Patient identity & eligibility verified (No blocking safety locks)",
-                "Step 2: Medical history & pre-existing conditions referenced",
-                "Step 3: Unstructured symptom text structured with duration & severity ratings",
-                parsedSummary.IsEmergency
-                    ? "Step 4: [SAFETY TRIGGER] Red flags identified. Escalating to Emergency Triage & Admin Oversight"
-                    : $"Step 4: Forwarding structured package to Component C (Triage: {parsedSummary.PreferredSpecialty ?? "General Practice"}) and Component B (Scheduling)"
-            },
-            ProcessedAt = DateTime.UtcNow,
-            GeneratedLogIds = logIds
-        };
+                PatientMetadata = new ValidatedPatientMetadataDto
+                {
+                    PatientId = patient.Id,
+                    Name = patient.Name,
+                    Age = DateTime.UtcNow.Year - patient.DateOfBirth.Year
+                          - (DateTime.UtcNow.DayOfYear < patient.DateOfBirth.DayOfYear ? 1 : 0),
+                    Gender = patient.Gender,
+                    NIC = patient.NIC,
+                    PhoneNumber = patient.PhoneNumber,
+                    EmergencyContact = patient.EmergencyContact,
+                    BloodGroup = patient.BloodGroup,
+                    Allergies = patient.Allergies,
+                    MedicalHistory = patient.MedicalHistory,
+                    IsEligible = true,
+                    EligibilityStatus = "Verified & Eligible"
+                },
+                Symptoms = parsedSummary.Symptoms,
+                SeverityFlags = new IntakeSeverityFlagsDto
+                {
+                    UrgencyLevel = parsedSummary.UrgencyLevel,
+                    IsEmergency = parsedSummary.IsEmergency,
+                    RequiresImmediateAttention = parsedSummary.IsEmergency
+                                                || parsedSummary.UrgencyLevel == UrgencyLevel.High,
+                    RedFlagsDetected = parsedSummary.RedFlags,
+                    UrgencyNotes = parsedSummary.UrgencyNotes
+                },
+                PreferredTimeWindows = parsedSummary.PreferredTimeWindows,
+                DoctorPreferences = new IntakeDoctorPreferencesDto
+                {
+                    PreferredDoctorName = parsedSummary.PreferredDoctor,
+                    PreferredSpecialty = parsedSummary.PreferredSpecialty,
+                    Notes = parsedSummary.DoctorPreferenceNotes
+                },
+                SummaryText = parsedSummary.FormattedSummary,
+                ExecutionPlan = new List<string>
+                {
+                    "Step 1: Patient identity & eligibility verified (No blocking safety locks)",
+                    "Step 2: Medical history & pre-existing conditions referenced",
+                    "Step 3: Unstructured symptom text structured with duration & severity ratings",
+                    parsedSummary.IsEmergency
+                        ? "Step 4: [SAFETY TRIGGER] Red flags identified. Escalating to Emergency Triage & Admin Oversight"
+                        : $"Step 4: Forwarding structured package to Component C (Triage: {parsedSummary.PreferredSpecialty ?? "General Practice"}) and Component B (Scheduling)"
+                },
+                ProcessedAt = DateTime.UtcNow,
+                GeneratedLogIds = logIds
+            };
 
-        return (true, null, structuredResponse);
+            // ΓöÇΓöÇ Step 5: Deterministic Schema Validation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            var (isValid, validationError) = IntakeAgentOutputValidator.Validate(structuredResponse);
+            if (!isValid)
+            {
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorCode = "SCHEMA_VIOLATION";
+                workflow.ErrorMessage = validationError;
+                workflow.ValidationSummary = validationError;
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return (false, $"Agent output failed schema validation: {validationError}", null);
+            }
+
+            // ΓöÇΓöÇ Mark workflow complete ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            sw.Stop();
+            workflow.Status = WorkflowStatus.Completed;
+            workflow.FinalOutcome = $"IntakeStructured: PatientId={patient.Id}, Urgency={parsedSummary.UrgencyLevel}, IsEmergency={parsedSummary.IsEmergency}";
+            workflow.ValidationSummary = "All 11 schema rules passed.";
+            workflow.CompletedAt = DateTime.UtcNow;
+            workflow.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return (true, null, structuredResponse);
+        }
+        catch (Exception ex)
+        {
+            workflow.Status = WorkflowStatus.SafeFailed;
+            workflow.ErrorCode = "UNEXPECTED_EXCEPTION";
+            workflow.ErrorMessage = ex.Message;
+            workflow.SafeFailedAt = DateTime.UtcNow;
+            workflow.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            throw;
+        }
     }
 
     public async Task<(bool Success, string? ErrorMessage, string ResultJson)> ToolGetPatientHistoryAsync(int patientId)
@@ -185,43 +288,110 @@ public class IntakeAgentService : IIntakeAgentService
 
         var text = rawText.ToLower();
 
-        // 1. Detect Symptoms
+        // 1. Detect Symptoms using natural language and spelling-variation patterns
         var symptoms = new List<StructuredSymptomDto>();
-        var symptomKeywords = new Dictionary<string, (string DefaultSeverity, string Category)>
+        var duration = ExtractDuration(text);
+
+        var symptomDefinitions = new (string CanonicalKeyword, string DefaultSeverity, string Category, string[] Patterns)[]
         {
-            { "chest pain", ("Severe", "Cardiology") },
-            { "shortness of breath", ("Severe", "Pulmonology/Cardiology") },
-            { "difficulty breathing", ("Severe", "Pulmonology/Cardiology") },
-            { "heart palpitations", ("Moderate", "Cardiology") },
-            { "numbness", ("Moderate", "Neurology") },
-            { "headache", ("Moderate", "Neurology") },
-            { "migraine", ("Moderate", "Neurology") },
-            { "fever", ("Moderate", "General") },
-            { "high fever", ("Severe", "General") },
-            { "cough", ("Mild", "General/Pulmonology") },
-            { "sore throat", ("Mild", "ENT") },
-            { "stomach pain", ("Moderate", "Gastroenterology") },
-            { "abdominal pain", ("Moderate", "Gastroenterology") },
-            { "vomiting", ("Moderate", "Gastroenterology") },
-            { "dizziness", ("Moderate", "Neurology/General") },
-            { "rash", ("Mild", "Dermatology") },
-            { "skin itch", ("Mild", "Dermatology") },
-            { "back pain", ("Moderate", "Orthopedics") },
-            { "knee pain", ("Moderate", "Orthopedics") },
-            { "joint pain", ("Moderate", "Rheumatology/Orthopedics") },
-            { "blurred vision", ("Severe", "Ophthalmology") }
+            ("chest pain", "Severe", "Cardiology", new[] {
+                "chest pain", "pain in my chest", "chest hurts", "chest burning", "burning feeling in my chest",
+                "tight chest", "chest tightness", "chest feels uncomfortable", "chest discomfort", "sharp chest pain"
+            }),
+            ("shortness of breath", "Severe", "Pulmonology/Cardiology", new[] {
+                "shortness of breath", "short of breath", "difficulty breathing", "hard to breathe", "hard to breath",
+                "trouble breathing", "breathless", "breathlessness"
+            }),
+            ("heart palpitations", "Moderate", "Cardiology", new[] {
+                "heart palpitations", "palpitations", "racing heart", "fast heartbeat", "fluttering heart"
+            }),
+            ("headache", "Moderate", "Neurology", new[] {
+                "headache", "head ache", "head hurts", "head pain", "head is pounding", "head is aching",
+                "hed is hurting", "hedache", "hed ache", "head is hurting", "bad headache", "my head hurts"
+            }),
+            ("migraine", "Moderate", "Neurology", new[] {
+                "migraine", "migrane", "visual aura", "throbbing headache"
+            }),
+            ("dizziness", "Moderate", "Neurology/General", new[] {
+                "dizziness", "dizzy", "dizy", "feeling dizzy", "lightheaded", "lightheadedness", "room is spinning"
+            }),
+            ("numbness", "Moderate", "Neurology", new[] {
+                "numbness", "numb", "tingling", "loss of feeling"
+            }),
+            ("stomach pain", "Moderate", "Gastroenterology", new[] {
+                "stomach pain", "stomach hurts", "stomach ache", "stomch hurts", "stomch ache", "stomac pain",
+                "belly pain", "tummy ache", "hurts after eating", "stomach cramps"
+            }),
+            ("abdominal pain", "Moderate", "Gastroenterology", new[] {
+                "abdominal pain", "abdomen pain", "lower abdominal"
+            }),
+            ("vomiting", "Moderate", "Gastroenterology", new[] {
+                "vomiting", "vomit", "throwing up", "threw up", "feel sick", "feeling sick", "nausea", "nauseous", "nausia", "nausious"
+            }),
+            ("high fever", "Severe", "General", new[] {
+                "high fever", "very high fever", "burning up", "high temperature"
+            }),
+            ("fever", "Moderate", "General", new[] {
+                "fever", "fevr", "feber", "feverish", "feeling feverish", "feeling hot"
+            }),
+            ("cough", "Mild", "General/Pulmonology", new[] {
+                "cough", "coughing", "dry cough", "wet cough", "hacking cough"
+            }),
+            ("sore throat", "Mild", "ENT", new[] {
+                "sore throat", "throat hurts", "throat pain", "scratchy throat", "pain swallowing"
+            }),
+            ("skin itch", "Mild", "Dermatology", new[] {
+                "skin itch", "itchy skin", "itchy thing", "red itchy thing", "itchiness"
+            }),
+            ("rash", "Mild", "Dermatology", new[] {
+                "rash", "skin rash", "red rash", "cutaneous rash", "spots on skin"
+            }),
+            ("back pain", "Moderate", "Orthopedics", new[] {
+                "back pain", "back hurts", "lower back pain", "spine pain"
+            }),
+            ("knee pain", "Moderate", "Orthopedics", new[] {
+                "knee pain", "knee hurts", "knee swelling", "swollen knee"
+            }),
+            ("joint pain", "Moderate", "Rheumatology/Orthopedics", new[] {
+                "joint pain", "joint hurts", "joint stiffness", "stiff joints", "aching joints"
+            }),
+            ("blurred vision", "Severe", "Ophthalmology", new[] {
+                "blurred vision", "blurry vision", "can't see clearly", "loss of vision"
+            })
         };
 
-        foreach (var kvp in symptomKeywords)
+        var matchedKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var def in symptomDefinitions)
         {
-            if (text.Contains(kvp.Key))
+            if (matchedKeywords.Contains(def.CanonicalKeyword)) continue;
+
+            // Check if high fever matched, skip plain fever if so
+            if (def.CanonicalKeyword == "fever" && matchedKeywords.Contains("high fever")) continue;
+            if (def.CanonicalKeyword == "headache" && matchedKeywords.Contains("migraine"))
             {
+                // Can have both or single
+            }
+
+            bool matched = false;
+            foreach (var pattern in def.Patterns)
+            {
+                if (text.Contains(pattern))
+                {
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (matched)
+            {
+                matchedKeywords.Add(def.CanonicalKeyword);
                 symptoms.Add(new StructuredSymptomDto
                 {
-                    Keyword = kvp.Key,
-                    Severity = kvp.Value.DefaultSeverity,
-                    Duration = ExtractDuration(text),
-                    Notes = $"Mapped to potential category: {kvp.Value.Category}"
+                    Keyword = def.CanonicalKeyword,
+                    Severity = def.DefaultSeverity,
+                    Duration = duration,
+                    Notes = $"Normalized from patient-expressed input. Mapped to potential category: {def.Category}"
                 });
             }
         }
@@ -232,7 +402,7 @@ public class IntakeAgentService : IIntakeAgentService
             {
                 Keyword = "General discomfort / Unspecified symptoms",
                 Severity = "Mild",
-                Duration = ExtractDuration(text),
+                Duration = duration,
                 Notes = "No predefined high-specificity keywords matched; marked for general evaluation."
             });
         }
@@ -243,8 +413,9 @@ public class IntakeAgentService : IIntakeAgentService
         var urgency = UrgencyLevel.Medium;
 
         if (text.Contains("chest pain") || (text.Contains("shortness of breath") && text.Contains("severe")) ||
-            text.Contains("unconscious") || text.Contains("fainted") || text.Contains("stroke") ||
-            (text.Contains("left arm") && text.Contains("pain")))
+            text.Contains("difficulty breathing") || text.Contains("unconscious") || text.Contains("fainted") ||
+            text.Contains("stroke") || (text.Contains("left arm") && text.Contains("pain")) ||
+            text.Contains("burning feeling in my chest"))
         {
             isEmergency = true;
             urgency = UrgencyLevel.Emergency;
@@ -279,12 +450,13 @@ public class IntakeAgentService : IIntakeAgentService
             preferredDoctor = doctorMatch.Value.Trim();
         }
 
-        if (text.Contains("cardio") || text.Contains("heart")) preferredSpecialty = "Cardiology";
-        else if (text.Contains("derma") || text.Contains("skin")) preferredSpecialty = "Dermatology";
-        else if (text.Contains("neuro") || text.Contains("brain") || text.Contains("nerves")) preferredSpecialty = "Neurology";
-        else if (text.Contains("ortho") || text.Contains("bone") || text.Contains("joint")) preferredSpecialty = "Orthopedics";
+        if (text.Contains("cardio") || text.Contains("heart") || text.Contains("chest")) preferredSpecialty = "Cardiology";
+        else if (text.Contains("derma") || text.Contains("skin") || text.Contains("rash") || text.Contains("itch")) preferredSpecialty = "Dermatology";
+        else if (text.Contains("neuro") || text.Contains("brain") || text.Contains("nerves") || text.Contains("headache") || text.Contains("migraine") || text.Contains("dizzy")) preferredSpecialty = "Neurology";
+        else if (text.Contains("ortho") || text.Contains("bone") || text.Contains("joint") || text.Contains("knee") || text.Contains("back")) preferredSpecialty = "Orthopedics";
         else if (text.Contains("pediatric") || text.Contains("child") || text.Contains("baby")) preferredSpecialty = "Pediatrics";
         else if (text.Contains("ent") || text.Contains("ear") || text.Contains("nose") || text.Contains("throat")) preferredSpecialty = "ENT";
+        else if (text.Contains("stomach") || text.Contains("vomit") || text.Contains("nausea") || text.Contains("belly")) preferredSpecialty = "Gastroenterology";
 
         var payload = new IntakeParsedSummaryPayload
         {
@@ -398,9 +570,39 @@ public class IntakeAgentService : IIntakeAgentService
         return log;
     }
 
+    /// <summary>
+    /// Writes a per-tool AuditLog entry into the shared AgentWorkflow orchestration table
+    /// so Student 4's admin oversight can track every tool invocation.
+    /// </summary>
+    private async Task AddWorkflowAuditLogAsync(
+        int workflowId,
+        string toolCalled,
+        string inputJson,
+        string outputJson,
+        string correlationId,
+        int durationMs)
+    {
+        var auditLog = new AuditLog
+        {
+            WorkflowId = workflowId,
+            AgentName = "IntakeStructuringAgent",
+            ToolCalled = toolCalled,
+            ToolOutput = outputJson,
+            StepName = toolCalled,
+            CorrelationId = correlationId,
+            ContractVersion = "intake-agent.v1",
+            Outcome = "Success",
+            DurationMs = durationMs,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _context.AuditLogs.Add(auditLog);
+        await _context.SaveChangesAsync();
+    }
+
     private static string? ExtractDuration(string text)
     {
-        var match = Regex.Match(text, @"(\d+\s+(day|days|week|weeks|month|months|hour|hours))|since\s+(yesterday|today|last\s+week)", RegexOptions.IgnoreCase);
+        var match = Regex.Match(text, @"(\d+\s+(day|days|week|weeks|month|months|hour|hours))|since\s+(yesterday|today|last\s+week|last\s+night)|for\s+(a\s+week|two\s+days|three\s+days|two\s+weeks|a\s+few\s+days|\d+\s+(day|days|week|weeks))", RegexOptions.IgnoreCase);
         return match.Success ? match.Value : null;
     }
 

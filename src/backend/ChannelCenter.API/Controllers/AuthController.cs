@@ -46,6 +46,27 @@ public class AuthController : ControllerBase
         return Ok(data);
     }
 
+    // POST: api/auth/admin/register
+    // Admin user registration - restricted to logged-in Admin accounts
+    [Authorize(Roles = "Admin")]
+    [HttpPost("admin/register")]
+    [HttpPost("register-admin")]
+    public async Task<IActionResult> RegisterAdmin([FromBody] AdminRegisterDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var (success, errorMessage, data) = await _authService.RegisterAdminAsync(dto);
+        if (!success)
+        {
+            return BadRequest(new { message = errorMessage });
+        }
+
+        return Ok(data);
+    }
+
     // POST: api/auth/login
     // Patient and user login
     [HttpPost("login")]
@@ -57,6 +78,26 @@ public class AuthController : ControllerBase
         }
 
         var (success, errorMessage, data) = await _authService.LoginAsync(dto);
+        if (!success)
+        {
+            return Unauthorized(new { message = errorMessage });
+        }
+
+        return Ok(data);
+    }
+
+    // POST: api/auth/admin/login
+    // Admin login with Admin role enforcement
+    [HttpPost("admin/login")]
+    [HttpPost("admin-login")]
+    public async Task<IActionResult> AdminLogin([FromBody] AdminLoginDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var (success, errorMessage, data) = await _authService.LoginAdminAsync(dto);
         if (!success)
         {
             return Unauthorized(new { message = errorMessage });
@@ -104,7 +145,7 @@ public class AuthController : ControllerBase
         var jwtKey = _config["Jwt:SecretKey"] ?? "ChannelCenterDevSecret_MustBe32CharsOrMore!";
         var jwtIssuer = _config["Jwt:Issuer"] ?? "ChannelCenterAPI";
         var jwtAudience = _config["Jwt:Audience"] ?? "ChannelCenterClients";
-        var expiryMinutes = _config.GetValue<int?>("Jwt:ExpiryMinutes") ?? 60;
+        var expiryMinutes = _config.GetValue<int?>("Jwt:ExpiryMinutes") ?? 1440;
         var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
 
         var claims = new[]

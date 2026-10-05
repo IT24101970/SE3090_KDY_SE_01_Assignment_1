@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Services.Admin;
@@ -13,15 +14,11 @@ public class AuditLogController : ControllerBase
 {
     private readonly IAuditLogService _auditLogService;
 
+    [ActivatorUtilitiesConstructor]
     public AuditLogController(IAuditLogService auditLogService)
     {
         _auditLogService = auditLogService;
     }
-
-    // public AuditLogController(ApplicationDbContext context)
-    //     : this(new AuditLogService(context))
-    // {
-    // }
 
     // GET: api/admin/audit-logs?workflowId=1&agentName=Triage&toolCalled=CheckSpecialty&page=1&pageSize=20
     [HttpGet]

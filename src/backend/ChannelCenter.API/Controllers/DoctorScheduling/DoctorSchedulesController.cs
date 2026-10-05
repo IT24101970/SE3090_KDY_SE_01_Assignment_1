@@ -74,4 +74,55 @@ public class DoctorSchedulesController : ControllerBase
         if (!success) return NotFound(new { message = $"Schedule with ID {id} not found." });
         return NoContent();
     }
+
+    // ── Student 2: Agentic AI Subsystem Integration ────────────────────────────────
+    [HttpGet("pending-appointments")]
+    public async Task<IActionResult> GetPendingAppointments()
+    {
+        var list = await _service.GetPendingAppointmentsAsync();
+        return Ok(list);
+    }
+
+    [HttpGet("triage-assessment/{appointmentId}")]
+
+    public async Task<IActionResult> GetTriageAssessment(int appointmentId)
+    {
+        var assessment = await _service.GetTriageAssessmentForAppointmentAsync(appointmentId);
+        if (assessment == null) return NotFound(new { message = $"No triage assessment found for appointment #{appointmentId}" });
+        return Ok(assessment);
+    }
+
+    [HttpPost("ai-optimize")]
+
+    public async Task<IActionResult> OptimizeScheduleWithAi([FromBody] object inputDto)
+    {
+        try
+        {
+            var result = await _service.OptimizeScheduleWithAiAsync(inputDto);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"AI Agent workflow failed: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("ai-approve/{workflowId}")]
+    public async Task<ActionResult<DoctorScheduleDto>> ApproveAiScheduleWorkflow(string workflowId)
+    {
+        try
+        {
+            var created = await _service.ApproveAiScheduleWorkflowAsync(workflowId);
+            return Ok(created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = $"Approval failed: {ex.Message}" });
+        }
+    }
 }
+

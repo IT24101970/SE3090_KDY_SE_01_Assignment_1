@@ -9,7 +9,7 @@ public class Appointment
     public DateTime AppointmentDate { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Pending;
     public string ReasonForVisit { get; set; } = string.Empty;
-    public string? CancelReason { get; set; }                       // Populated only if cancelled
+    public string? CancelReason { get; set; }                       // Populated only if canceled
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
@@ -17,4 +17,6 @@ public class Appointment
     public Patient? Patient { get; set; }
     public Doctor? Doctor { get; set; }
     public DoctorSchedule? Schedule { get; set; }
+    public AgentWorkflow? SafetyAuditWorkflow { get; set; }
+    public ICollection<TriageAssessment> TriageAssessments { get; set; } = new List<TriageAssessment>();
 }

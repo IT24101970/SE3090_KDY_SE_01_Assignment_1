@@ -3,6 +3,7 @@ using ChannelCenter.API.Controllers;
 using ChannelCenter.API.DTOs.Common;
 using ChannelCenter.API.DTOs.Patient;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.Patient;
 using Xunit;
 
 namespace ChannelCenter.Tests.Patients;
@@ -24,7 +25,7 @@ public class PatientsControllerTests
         });
         await context.SaveChangesAsync();
 
-        var controller = new PatientsController(context);
+        var controller = new PatientsController(new PatientService(context));
 
         var result = await controller.GetPatients(new PatientFilterDto());
 
@@ -37,7 +38,7 @@ public class PatientsControllerTests
     public async Task GetPatientById_ReturnsNotFound_WhenDoesNotExist()
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new PatientsController(context);
+        var controller = new PatientsController(new PatientService(context));
 
         var result = await controller.GetPatientById(999);
 
@@ -48,7 +49,7 @@ public class PatientsControllerTests
     public async Task CreatePatient_ReturnsCreatedAtAction_WhenValid()
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new PatientsController(context);
+        var controller = new PatientsController(new PatientService(context));
 
         var dto = new CreatePatientDto
         {

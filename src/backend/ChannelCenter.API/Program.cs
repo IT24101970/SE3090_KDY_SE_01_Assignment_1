@@ -9,7 +9,9 @@ using ChannelCenter.API.Services.Appointment;
 using ChannelCenter.API.Services.Auth;
 using ChannelCenter.API.Services.IntakeAgent;
 using ChannelCenter.API.Services.Patient;
+using ChannelCenter.API.Services.SafetyAuditor;
 using ChannelCenter.API.Services.Triage;
+using ChannelCenter.API.Services.DoctorScheduling;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,7 +20,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? "Host=localhost;Database=channel_center_db;Username=postgres;Password=postgres";
 
 // ── Core MVC & Routing ───────────────────────────────────────────────────────
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
@@ -26,7 +32,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+        policy.SetIsOriginAllowed(origin => 
+                  string.IsNullOrEmpty(origin) ||
+                  new Uri(origin).Host == "localhost" ||
+                  new Uri(origin).Host == "127.0.0.1")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -103,11 +112,36 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 // ── Medical Triage & Specialist Matching Service Layer (Component 3) ─────────
 builder.Services.AddScoped<ITriageService, TriageService>();
 
+// ── Student 2: Doctor Scheduling & Consultation Management Service ─────────────
+builder.Services.AddScoped<IDoctorSchedulingService, DoctorSchedulingService>();
+
 // ── Admin Service Layer (Component 4) ─────────────────────────────────────────
 builder.Services.AddScoped<IAgentWorkflowService, AgentWorkflowService>();
 builder.Services.AddScoped<IAdminOverrideService, AdminOverrideService>();
 builder.Services.AddScoped<IAdminAnalyticsService, AdminAnalyticsService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<ISafetyAuditorReadService, SafetyAuditorReadService>();
+
+// Internal Safety Auditor & AI Service calls use a separate shared secret
+var aiBaseUrl = builder.Configuration["SafetyAuditor:BaseUrl"] ?? "http://127.0.0.1:8001";
+builder.Services.AddHttpClient("AiService", client =>
+{
+    client.BaseAddress = new Uri(aiBaseUrl);
+});
+builder.Services.Configure<SafetyAuditorOptions>(
+    builder.Configuration.GetSection(SafetyAuditorOptions.SectionName));
+builder.Services.AddHttpClient<ISafetyAuditorService, SafetyAuditorService>((serviceProvider, client) =>
+{
+    var options = serviceProvider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<SafetyAuditorOptions>>()
+        .Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 60));
+    if (!string.IsNullOrWhiteSpace(options.InternalServiceKey))
+    {
+        client.DefaultRequestHeaders.Add("X-Internal-Service-Key", options.InternalServiceKey);
+    }
+});
 
 // ── Build App ─────────────────────────────────────────────────────────────────
 var app = builder.Build();
@@ -129,6 +163,7 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
     await DataSeeder.SeedAsync(db);
 }
 

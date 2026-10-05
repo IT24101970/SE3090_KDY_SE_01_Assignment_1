@@ -92,6 +92,51 @@ public class AuthService : IAuthService
         return (true, null, response);
     }
 
+    public async Task<(bool Success, string? ErrorMessage, AuthResponseDto? Data)> RegisterAdminAsync(AdminRegisterDto dto)
+    {
+        var normalizedEmail = dto.Email.Trim().ToLower();
+
+        var existingUser = await _context.Users.AnyAsync(u => u.Email.ToLower() == normalizedEmail);
+        if (existingUser)
+        {
+            return (false, $"An account with email '{dto.Email}' already exists.", null);
+        }
+
+        var now = DateTime.UtcNow;
+
+        var user = new User
+        {
+            FullName = dto.FullName.Trim(),
+            Email = normalizedEmail,
+            PasswordHash = HashPassword(dto.Password),
+            Role = UserRole.Admin,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var (token, expiresAt) = GenerateJwtToken(user, null);
+
+        var response = new AuthResponseDto
+        {
+            Token = token,
+            TokenType = "Bearer",
+            ExpiresAt = expiresAt,
+            User = new AuthUserDto
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                Role = user.Role.ToString(),
+                PatientId = null
+            }
+        };
+
+        return (true, null, response);
+    }
+
     public async Task<(bool Success, string? ErrorMessage, AuthResponseDto? Data)> LoginAsync(PatientLoginDto dto)
     {
         var normalizedEmail = dto.Email.Trim().ToLower();
@@ -121,6 +166,43 @@ public class AuthService : IAuthService
                 Email = user.Email,
                 Role = user.Role.ToString(),
                 PatientId = patient?.Id
+            }
+        };
+
+        return (true, null, response);
+    }
+
+    public async Task<(bool Success, string? ErrorMessage, AuthResponseDto? Data)> LoginAdminAsync(AdminLoginDto dto)
+    {
+        var normalizedEmail = dto.Email.Trim().ToLower();
+
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
+
+        if (user == null || !VerifyPassword(dto.Password, user.PasswordHash))
+        {
+            return (false, "Invalid email or password.", null);
+        }
+
+        if (user.Role != UserRole.Admin)
+        {
+            return (false, "Access denied. Only users with the Admin role are allowed to log into this administrative portal.", null);
+        }
+
+        var (token, expiresAt) = GenerateJwtToken(user, null);
+
+        var response = new AuthResponseDto
+        {
+            Token = token,
+            TokenType = "Bearer",
+            ExpiresAt = expiresAt,
+            User = new AuthUserDto
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                Role = user.Role.ToString(),
+                PatientId = null
             }
         };
 
@@ -194,7 +276,7 @@ public class AuthService : IAuthService
         return (handler.WriteToken(token), expiresAt);
     }
 
-    private static string HashPassword(string password)
+    public static string HashPassword(string password)
     {
         using var sha256 = SHA256.Create();
         var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password + "_ChannelCenterSalt2026"));
@@ -205,10 +287,9 @@ public class AuthService : IAuthService
     {
         if (string.IsNullOrEmpty(storedHash)) return false;
 
-        // Support both hashed passwords and test seed passwords
-        if (storedHash.StartsWith("$2a$") || storedHash.StartsWith("$2b$"))
+        // Dev fallback for plain text or bcrypt seeds
+        if (storedHash.StartsWith("$2a$") || storedHash.StartsWith("$2b$") || storedHash == password)
         {
-            // Dev fallback for bcrypt seeds
             return true;
         }
 

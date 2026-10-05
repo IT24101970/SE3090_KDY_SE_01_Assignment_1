@@ -2,60 +2,97 @@ using Microsoft.EntityFrameworkCore;
 using ChannelCenter.API.Data;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.DTOs.Appointment;
-//using ChannelCenter.API.DTOs.Common;
+using ChannelCenter.API.DTOs.IntakeAgent;
+using ChannelCenter.API.DTOs.SafetyAuditor;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.IntakeAgent;
+using ChannelCenter.API.Services.SafetyAuditor;
 
 namespace ChannelCenter.API.Services.Appointment;
 
 public class AppointmentService : IAppointmentService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IIntakeAgentService? _intakeAgentService;
+    private readonly ISafetyAuditorService? _safetyAuditorService;
 
-    public AppointmentService(ApplicationDbContext context)
+    public AppointmentService(
+        ApplicationDbContext context,
+        IIntakeAgentService? intakeAgentService = null,
+        ISafetyAuditorService? safetyAuditorService = null)
     {
         _context = context;
+        _intakeAgentService = intakeAgentService;
+        _safetyAuditorService = safetyAuditorService;
+    }
+
+    public AppointmentService(
+        ApplicationDbContext context,
+        ISafetyAuditorService? safetyAuditorService)
+        : this(context, null, safetyAuditorService)
+    {
     }
 
     public async Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> CreateAppointmentAsync(CreateAppointmentDto dto)
     {
-        var patient = await _context.Patients.FindAsync(dto.PatientId);
+        Models.Patient? patient = null;
+        if (dto.PatientId.HasValue && dto.PatientId.Value > 0)
+        {
+            patient = await _context.Patients.FindAsync(dto.PatientId.Value);
+        }
+
         if (patient == null)
         {
-            return (false, $"Patient with ID {dto.PatientId} does not exist.", null);
+            // Find or create a dedicated Walk-in Patient profile so unregistered appointments don't hijack registered Patient #1
+            patient = await _context.Patients.FirstOrDefaultAsync(p => p.NIC == "WALKIN-PATIENT" || p.Name == "Walk-in Patient");
+
+            if (patient == null)
+            {
+                patient = new Models.Patient
+                {
+                    Name = "Walk-in Patient",
+                    NIC = "WALKIN-PATIENT",
+                    PhoneNumber = "N/A",
+                    Email = "walkin@hospital.local",
+                    Gender = "Unspecified",
+                    DateOfBirth = new DateTime(1990, 1, 1),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.Patients.Add(patient);
+                await _context.SaveChangesAsync();
+            }
         }
+        dto.PatientId = patient.Id;
 
         var doctor = await _context.Doctors
             .Include(d => d.User)
             .Include(d => d.Specialty)
-            .FirstOrDefaultAsync(d => d.Id == dto.DoctorId);
+            .FirstOrDefaultAsync(d => d.Id == dto.DoctorId)
+            ?? await _context.Doctors.Include(d => d.User).Include(d => d.Specialty).FirstOrDefaultAsync();
+
         if (doctor == null)
         {
-            return (false, $"Doctor with ID {dto.DoctorId} does not exist.", null);
+            return (false, "No doctors registered in the database. Please register a doctor first.", null);
         }
+        dto.DoctorId = doctor.Id;
 
         var schedule = await _context.DoctorSchedules
             .Include(s => s.Room)
-            .FirstOrDefaultAsync(s => s.Id == dto.ScheduleId);
+            .FirstOrDefaultAsync(s => s.Id == dto.ScheduleId)
+            ?? await _context.DoctorSchedules.Include(s => s.Room).FirstOrDefaultAsync(s => s.DoctorId == doctor.Id)
+            ?? await _context.DoctorSchedules.Include(s => s.Room).FirstOrDefaultAsync();
+
         if (schedule == null)
         {
-            return (false, $"Schedule with ID {dto.ScheduleId} does not exist.", null);
+            return (false, "No doctor schedules found in database. Please create at least one doctor schedule first.", null);
         }
+        dto.ScheduleId = schedule.Id;
 
-        if (schedule.DoctorId != dto.DoctorId)
-        {
-            return (false, $"Schedule {dto.ScheduleId} does not belong to Doctor {dto.DoctorId}.", null);
-        }
-
-        // Prevent duplicate active booking for the same patient on this schedule
-        var duplicateBooking = await _context.Appointments.AnyAsync(a =>
-            a.PatientId == dto.PatientId &&
-            a.ScheduleId == dto.ScheduleId &&
-            (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Confirmed));
-
-        if (duplicateBooking)
-        {
-            return (false, "Patient already has an active appointment for this channel schedule.", null);
-        }
+        var nowUtc = DateTime.UtcNow;
+        var apptDate = dto.AppointmentDate != default
+            ? DateTime.SpecifyKind(dto.AppointmentDate, DateTimeKind.Utc)
+            : (schedule.StartTime >= nowUtc ? schedule.StartTime : nowUtc.AddHours(1));
 
         // Check channel slot capacity against MaxPatients
         var activeAppointmentsCount = await _context.Appointments.CountAsync(a =>
@@ -67,24 +104,155 @@ public class AppointmentService : IAppointmentService
             return (false, $"Channel session is fully booked (Maximum {schedule.MaxPatients} patients reached).", null);
         }
 
-        var now = DateTime.UtcNow;
         var appointment = new Models.Appointment
         {
-            PatientId = dto.PatientId,
+            PatientId = patient.Id,
             DoctorId = dto.DoctorId,
             ScheduleId = dto.ScheduleId,
-            AppointmentDate = DateTime.SpecifyKind(dto.AppointmentDate, DateTimeKind.Utc),
+            AppointmentDate = apptDate,
             Status = AppointmentStatus.Pending,
             ReasonForVisit = dto.ReasonForVisit.Trim(),
-            CreatedAt = now,
-            UpdatedAt = now
+            CreatedAt = nowUtc,
+            UpdatedAt = nowUtc
         };
 
         _context.Appointments.Add(appointment);
         await _context.SaveChangesAsync();
 
+        // ── Skip AI Workflows for Direct Manual Admin Assignments ─────────────────
+        if (!dto.SkipAiWorkflows && _intakeAgentService != null && !string.IsNullOrWhiteSpace(appointment.ReasonForVisit))
+        {
+            try
+            {
+                var intakeResult = await _intakeAgentService.ProcessIntakeAsync(new IntakeProcessRequestDto
+                {
+                    PatientId = appointment.PatientId,
+                    RawText = appointment.ReasonForVisit
+                });
+
+                if (intakeResult.Success && intakeResult.Data != null)
+                {
+                    var extractedKeywords = intakeResult.Data.Symptoms
+                        .Select(s => s.Keyword)
+                        .Where(k => !string.IsNullOrWhiteSpace(k) && !k.StartsWith("General discomfort", StringComparison.OrdinalIgnoreCase))
+                        .Distinct()
+                        .ToList();
+
+                    var rawSymptoms = extractedKeywords.Count > 0
+                        ? string.Join("; ", extractedKeywords)
+                        : (intakeResult.Data.Symptoms.FirstOrDefault()?.Keyword ?? "General evaluation / Unspecified symptoms");
+
+                    var existingTriage = await _context.TriageAssessments
+                        .FirstOrDefaultAsync(t => t.AppointmentId == appointment.Id);
+
+                    if (existingTriage != null)
+                    {
+                        existingTriage.RawSymptoms = rawSymptoms;
+                        existingTriage.UrgencyLevel = intakeResult.Data.SeverityFlags.UrgencyLevel;
+                        existingTriage.UrgencyScore = (int)intakeResult.Data.SeverityFlags.UrgencyLevel * 25;
+                        existingTriage.RecommendedSpecialty = intakeResult.Data.DoctorPreferences?.PreferredSpecialty ?? "General Practice";
+                        existingTriage.ReasoningTrace = $"Intake Agent normalized symptoms: {rawSymptoms}";
+                        existingTriage.UpdatedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        var triage = new TriageAssessment
+                        {
+                            AppointmentId = appointment.Id,
+                            RawSymptoms = rawSymptoms,
+                            UrgencyScore = (int)intakeResult.Data.SeverityFlags.UrgencyLevel * 25,
+                            UrgencyLevel = intakeResult.Data.SeverityFlags.UrgencyLevel,
+                            RecommendedSpecialty = intakeResult.Data.DoctorPreferences?.PreferredSpecialty ?? "General Practice",
+                            ReasoningTrace = $"Intake Agent normalized symptoms: {rawSymptoms}",
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        _context.TriageAssessments.Add(triage);
+                    }
+
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch
+            {
+                // Safe failure
+            }
+        }
+
+        if (!dto.SkipAiWorkflows)
+        {
+            await StartSafetyAuditAfterSaveAsync(appointment);
+        }
+
         var response = await GetAppointmentByIdAsync(appointment.Id);
         return (true, null, response);
+    }
+
+    private async Task StartSafetyAuditAfterSaveAsync(Models.Appointment appointment)
+    {
+        if (_safetyAuditorService == null)
+        {
+            return;
+        }
+
+        var workflow = await _context.AgentWorkflows
+            .FirstOrDefaultAsync(w => w.AppointmentId == appointment.Id);
+
+        if (workflow == null)
+        {
+            workflow = new AgentWorkflow
+            {
+                AppointmentId = appointment.Id,
+                Objective = $"Safety review for appointment {appointment.Id}",
+                Status = WorkflowStatus.Running,
+                RequiresHumanApproval = false,
+                CorrelationId = $"appointment-{appointment.Id}-safety-audit",
+                ContractVersion = "safety-audit.v1",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.AgentWorkflows.Add(workflow);
+            await _context.SaveChangesAsync();
+        }
+
+        var request = new SafetyAuditStartRequestDto
+        {
+            Objective = workflow.Objective,
+            CorrelationId = workflow.CorrelationId,
+            ContractVersion = workflow.ContractVersion,
+            SourceAgent = "Component2.AppointmentService",
+            AppointmentId = appointment.Id,
+            Proposal = new Dictionary<string, object?>
+            {
+                ["action"] = "review_appointment",
+                ["appointmentId"] = appointment.Id,
+                ["evidence"] = new[] { $"appointment:{appointment.Id}" }
+            }
+        };
+
+        try
+        {
+            var auditResult = await _safetyAuditorService.StartAsync(workflow.Id, request);
+            workflow.Status = auditResult.Status;
+            workflow.RequiresHumanApproval = auditResult.RequiresApproval;
+            workflow.RiskLevel = auditResult.RiskLevel;
+            workflow.ValidationSummary = auditResult.ValidationSummary;
+            workflow.FinalOutcome = auditResult.FinalOutcome;
+            workflow.ErrorCode = auditResult.Error?.Code;
+            workflow.ErrorMessage = auditResult.Error?.Message;
+            workflow.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception error) when (error is HttpRequestException or InvalidOperationException)
+        {
+            // The appointment is already durable; the workflow records an unavailable auditor.
+            workflow.Status = WorkflowStatus.SafeFailed;
+            workflow.ErrorCode = "auditor_unavailable";
+            workflow.ErrorMessage = error.Message.Length > 500 ? error.Message[..500] : error.Message;
+            workflow.SafeFailedAt = DateTime.UtcNow;
+            workflow.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<AppointmentResponseDto?> GetAppointmentByIdAsync(int id)
@@ -230,6 +398,65 @@ public class AppointmentService : IAppointmentService
         });
     }
 
+    public async Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> UpdateAppointmentAsync(int id, UpdateAppointmentDto dto)
+    {
+        var appt = await _context.Appointments
+            .Include(a => a.Patient)
+            .Include(a => a.Doctor!.User)
+            .Include(a => a.Doctor!.Specialty)
+            .Include(a => a.Schedule!.Room)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (appt == null)
+        {
+            return (false, $"Appointment with ID {id} not found.", null);
+        }
+
+        if (dto.DoctorId.HasValue && dto.DoctorId.Value > 0)
+        {
+            var doctor = await _context.Doctors.FindAsync(dto.DoctorId.Value);
+            if (doctor != null) appt.DoctorId = doctor.Id;
+        }
+
+        if (dto.ScheduleId.HasValue && dto.ScheduleId.Value > 0)
+        {
+            var schedule = await _context.DoctorSchedules.FindAsync(dto.ScheduleId.Value);
+            if (schedule != null)
+            {
+                appt.ScheduleId = schedule.Id;
+                if (!dto.DoctorId.HasValue || dto.DoctorId.Value == 0)
+                {
+                    appt.DoctorId = schedule.DoctorId;
+                }
+            }
+        }
+
+        if (dto.AppointmentDate.HasValue && dto.AppointmentDate.Value != default)
+        {
+            appt.AppointmentDate = DateTime.SpecifyKind(dto.AppointmentDate.Value, DateTimeKind.Utc);
+        }
+
+        if (dto.ReasonForVisit != null)
+        {
+            appt.ReasonForVisit = dto.ReasonForVisit.Trim();
+        }
+
+        if (dto.Status.HasValue)
+        {
+            appt.Status = dto.Status.Value;
+            if (dto.Status.Value == AppointmentStatus.Cancelled && !string.IsNullOrWhiteSpace(dto.CancelReason))
+            {
+                appt.CancelReason = dto.CancelReason.Trim();
+            }
+        }
+
+        appt.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        var updated = await GetAppointmentByIdAsync(id);
+        return (true, null, updated);
+    }
+
     public async Task<List<ChannelSlotDto>> GetAvailableChannelSlotsAsync(ChannelSlotFilterDto filter)
     {
         IQueryable<DoctorSchedule> query = _context.DoctorSchedules
@@ -301,11 +528,16 @@ public class AppointmentService : IAppointmentService
             .Include(a => a.Doctor!.User)
             .Include(a => a.Doctor!.Specialty)
             .Include(a => a.Schedule!.Room)
+            .Include(a => a.TriageAssessments)
             .AsNoTracking();
     }
 
     private static AppointmentResponseDto MapToDto(Models.Appointment a)
     {
+        var latestTriage = a.TriageAssessments?
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefault();
+
         return new AppointmentResponseDto
         {
             Id = a.Id,
@@ -324,7 +556,102 @@ public class AppointmentService : IAppointmentService
             ReasonForVisit = a.ReasonForVisit,
             CancelReason = a.CancelReason,
             CreatedAt = a.CreatedAt,
-            UpdatedAt = a.UpdatedAt
+            UpdatedAt = a.UpdatedAt,
+            NormalizedRawSymptoms = latestTriage?.RawSymptoms,
+            TriageAssessmentId = latestTriage?.Id
         };
+    }
+
+    public async Task<(bool Success, string? ErrorMessage, AppointmentResponseDto? Data)> AssignDoctorAndScheduleAsync(int id, string recommendedSpecialty)
+    {
+        var appt = await _context.Appointments
+            .Include(a => a.Patient)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (appt == null)
+        {
+            return (false, $"Appointment with ID {id} not found.", null);
+        }
+
+        var now = DateTime.UtcNow;
+        DoctorSchedule? matchedSchedule = null;
+
+        var cleanSpecialty = recommendedSpecialty?.Trim().ToLower() ?? "";
+        var specialty = await _context.Specialties
+            .FirstOrDefaultAsync(s => s.Name.ToLower().Contains(cleanSpecialty) || cleanSpecialty.Contains(s.Name.ToLower()));
+
+        if (specialty != null)
+        {
+            var specialtyDocIds = await _context.Doctors
+                .Where(d => d.SpecialtyId == specialty.Id)
+                .Select(d => d.Id)
+                .ToListAsync();
+
+            if (specialtyDocIds.Any())
+            {
+                // Match ONLY future active schedules for doctors of matching specialty
+                matchedSchedule = await _context.DoctorSchedules
+                    .Include(s => s.Doctor)
+                    .ThenInclude(d => d!.User)
+                    .Include(s => s.Doctor)
+                    .ThenInclude(d => d!.Specialty)
+                    .Include(s => s.Room)
+                    .Where(s => specialtyDocIds.Contains(s.DoctorId) && s.EndTime >= now)
+                    .OrderBy(s => s.StartTime)
+                    .FirstOrDefaultAsync();
+            }
+        }
+
+        var workflow = await _context.AgentWorkflows
+            .FirstOrDefaultAsync(w => w.AppointmentId == appt.Id);
+
+        if (matchedSchedule != null)
+        {
+            appt.DoctorId = matchedSchedule.DoctorId;
+            appt.ScheduleId = matchedSchedule.Id;
+            appt.AppointmentDate = matchedSchedule.StartTime >= now ? matchedSchedule.StartTime : now.AddDays(1);
+            appt.Status = AppointmentStatus.Confirmed;
+            appt.UpdatedAt = now;
+
+            if (workflow != null)
+            {
+                workflow.Status = WorkflowStatus.Completed;
+                workflow.RequiresHumanApproval = false;
+                workflow.ValidationSummary = $"Automatically assigned to Dr. {matchedSchedule.Doctor?.User?.FullName ?? "Specialist"} ({matchedSchedule.Room?.RoomName ?? "Room TBD"}).";
+                workflow.UpdatedAt = now;
+            }
+        }
+        else
+        {
+            // NO valid future schedule available for recommended specialty:
+            // Do NOT assign doctor/schedule, keep status PAUSED / PENDING for admin review.
+            appt.DoctorId = 0;
+            appt.ScheduleId = 0;
+            appt.Status = AppointmentStatus.Pending;
+            appt.UpdatedAt = now;
+
+            if (workflow == null)
+            {
+                workflow = new AgentWorkflow
+                {
+                    AppointmentId = appt.Id,
+                    Objective = $"Schedule assignment for appointment #{appt.Id} ({recommendedSpecialty})",
+                    CorrelationId = $"appointment-{appt.Id}-scheduling",
+                    ContractVersion = "v1",
+                    CreatedAt = now
+                };
+                _context.AgentWorkflows.Add(workflow);
+            }
+
+            workflow.Status = WorkflowStatus.PausedForApproval;
+            workflow.RequiresHumanApproval = true;
+            workflow.ValidationSummary = $"No valid schedules available for recommended specialty '{recommendedSpecialty}'. Appointment is paused pending human admin schedule assignment.";
+            workflow.UpdatedAt = now;
+        }
+
+        await _context.SaveChangesAsync();
+
+        var result = await GetAppointmentByIdAsync(appt.Id);
+        return (true, null, result);
     }
 }

@@ -11,7 +11,7 @@ public interface ITriageService
     // Triage Operations
     Task<TriageAssessmentDto> ProcessTriageAsync(ProcessTriageDto dto);
     Task<TriageAssessmentDto?> GetTriageAssessmentByIdAsync(int id);
-    Task<IEnumerable<TriageAssessmentDto>> GetPatientTriageHistoryAsync(int patientId);
+    Task<IEnumerable<TriageAssessmentDto>> GetTriageHistoryByAppointmentAsync(int appointmentId);
 
     // Referral Operations
     Task<ReferralDto> CreateReferralAsync(CreateReferralDto dto);
@@ -19,5 +19,5 @@ public interface ITriageService
     Task<IEnumerable<ReferralDto>> GetAllReferralsAsync();
 
     // Specialty Operations
-    Task<IEnumerable<SpecialtyDto>> GetSpecialtiesAsync();
+    Task<IEnumerable<string>> GetSpecialtiesAsync();
 }

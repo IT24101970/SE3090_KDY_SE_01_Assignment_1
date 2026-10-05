@@ -8,5 +8,8 @@ public class AiSafetyMetricsDto
     public int RejectedCount { get; set; }
     public int RevisedCount { get; set; }
     public int ManualOverridesCount { get; set; }
+    public int SafeFailedCount { get; set; }
+    public int ValidationFailedCount { get; set; }
+    public double AverageLatencyMs { get; set; }
     public double HumanInterventionRate { get; set; }
 }

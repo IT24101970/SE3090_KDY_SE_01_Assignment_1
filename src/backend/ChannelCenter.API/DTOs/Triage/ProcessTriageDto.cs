@@ -5,9 +5,7 @@ namespace ChannelCenter.API.DTOs.Triage;
 public class ProcessTriageDto
 {
     [Required]
-    public int PatientId { get; set; }
-
-    public int? QuestionnaireId { get; set; }
+    public int AppointmentId { get; set; }
 
     [Required]
     public string RawSymptoms { get; set; } = string.Empty;

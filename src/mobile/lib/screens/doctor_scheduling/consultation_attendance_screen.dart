@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../models/doctor_scheduling_models.dart';
+import '../../services/doctor_scheduling_service.dart';
 
 class ConsultationAttendanceScreen extends StatefulWidget {
   final PatientQueueItem patient;
 
-  const ConsultationAttendanceScreen({Key? key, required this.patient})
-      : super(key: key);
+  const ConsultationAttendanceScreen({super.key, required this.patient});
 
   @override
   State<ConsultationAttendanceScreen> createState() =>
@@ -17,6 +17,7 @@ class _ConsultationAttendanceScreenState
   late AttendanceStatus _attendanceStatus;
   late TextEditingController _notesController;
   late TextEditingController _prescriptionController;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -35,21 +36,46 @@ class _ConsultationAttendanceScreenState
     super.dispose();
   }
 
-  void _saveConsultation() {
+  Future<void> _saveConsultation() async {
     setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await DoctorSchedulingService.updateConsultation(
+        appointmentId: widget.patient.appointmentId,
+        status: _attendanceStatus,
+        clinicalNotes: _notesController.text,
+        prescriptionData: _prescriptionController.text,
+      );
+
       widget.patient.attendanceStatus = _attendanceStatus;
       widget.patient.clinicalNotes = _notesController.text;
       widget.patient.prescriptionData = _prescriptionController.text;
-    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Consultation & Prescription saved successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+      if (!mounted) return;
 
-    Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Consultation & Attendance saved to PostgreSQL database!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save consultation to DB: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -103,7 +129,7 @@ class _ConsultationAttendanceScreenState
             ),
             const SizedBox(height: 20),
             const Text(
-              'Patient Attendance Status',
+              'Patient Attendance Status (DB)',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -167,11 +193,17 @@ class _ConsultationAttendanceScreenState
               width: double.infinity,
               height: 50,
               child: ElevatedButton.icon(
-                onPressed: _saveConsultation,
-                icon: const Icon(Icons.save),
-                label: const Text(
-                  'Save Consultation & Issue Prescription',
-                  style: TextStyle(fontSize: 16),
+                onPressed: _isSaving ? null : _saveConsultation,
+                icon: _isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(
+                  _isSaving ? 'Saving to Database...' : 'Save Consultation & Issue Prescription (DB)',
+                  style: const TextStyle(fontSize: 15),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.indigo,

@@ -61,6 +61,39 @@ public class ApplicationDbContext : DbContext
             .Property(a => a.ToolOutput)
             .HasColumnType("jsonb");
 
+        modelBuilder.Entity<AgentWorkflow>()
+            .HasIndex(w => w.CorrelationId);
+
+        modelBuilder.Entity<AgentWorkflow>()
+            .HasIndex(w => new { w.Status, w.CreatedAt });
+
+        modelBuilder.Entity<AgentWorkflow>()
+            .Property(w => w.CorrelationId)
+            .HasMaxLength(128);
+
+        modelBuilder.Entity<AgentWorkflow>()
+            .Property(w => w.ContractVersion)
+            .HasMaxLength(32);
+
+        modelBuilder.Entity<AgentWorkflow>()
+            .HasIndex(w => w.AppointmentId)
+            .IsUnique()
+            .HasFilter("\"AppointmentId\" IS NOT NULL");
+
+        modelBuilder.Entity<AgentWorkflow>()
+            .HasOne(w => w.Appointment)
+            .WithOne(a => a.SafetyAuditWorkflow)
+            .HasForeignKey<AgentWorkflow>(w => w.AppointmentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<AuditLog>()
+            .Property(a => a.CorrelationId)
+            .HasMaxLength(128);
+
+        modelBuilder.Entity<AuditLog>()
+            .Property(a => a.ContractVersion)
+            .HasMaxLength(32);
+
         // NOTE: Seed data is managed by DataSeeder.cs (called from Program.cs at startup).
         // Keeping seed data out of HasData prevents it from polluting in-memory test databases.
     }

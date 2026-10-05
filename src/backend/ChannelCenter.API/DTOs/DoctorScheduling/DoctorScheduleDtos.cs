@@ -12,6 +12,8 @@ public class DoctorScheduleDto
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public int MaxPatients { get; set; }
+    public bool IsExpired => DateTime.UtcNow > EndTime;
+    public string Status => IsExpired ? "Expired" : "Active";
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

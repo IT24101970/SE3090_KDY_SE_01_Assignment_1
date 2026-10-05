@@ -16,5 +16,6 @@ public class ChannelSlotDto
     public int MaxPatients { get; set; }
     public int BookedSlots { get; set; }
     public int AvailableSlots => Math.Max(0, MaxPatients - BookedSlots);
-    public bool IsAvailable => AvailableSlots > 0;
+    public bool IsExpired => DateTime.UtcNow > EndTime;
+    public bool IsAvailable => AvailableSlots > 0 && !IsExpired;
 }

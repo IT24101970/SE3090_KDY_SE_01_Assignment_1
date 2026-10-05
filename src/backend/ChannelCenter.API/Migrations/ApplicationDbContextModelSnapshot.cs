@@ -62,15 +62,52 @@ namespace ChannelCenter.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AppointmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContractVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErrorCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FinalOutcome")
+                        .HasColumnType("text");
 
                     b.Property<string>("Objective")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PlanSummary")
+                        .HasColumnType("text");
+
                     b.Property<bool>("RequiresHumanApproval")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("RiskLevel")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("SafeFailedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("SafetyAuditStartedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -78,7 +115,18 @@ namespace ChannelCenter.API.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ValidationSummary")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId")
+                        .IsUnique()
+                        .HasFilter("\"AppointmentId\" IS NOT NULL");
+
+                    b.HasIndex("CorrelationId");
+
+                    b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("AgentWorkflows");
                 });
@@ -142,8 +190,25 @@ namespace ChannelCenter.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ContractVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Outcome")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StepName")
+                        .HasColumnType("text");
 
                     b.Property<string>("ToolCalled")
                         .IsRequired()
@@ -477,8 +542,9 @@ namespace ChannelCenter.API.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<int>("TargetSpecialtyId")
-                        .HasColumnType("integer");
+                    b.Property<string>("TargetSpecialty")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<int>("TriageId")
                         .HasColumnType("integer");
@@ -487,8 +553,6 @@ namespace ChannelCenter.API.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("TargetSpecialtyId");
 
                     b.HasIndex("TriageId");
 
@@ -563,14 +627,11 @@ namespace ChannelCenter.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("AppointmentId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("PatientId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("QuestionnaireId")
-                        .HasColumnType("integer");
 
                     b.Property<string>("RawSymptoms")
                         .IsRequired()
@@ -579,8 +640,9 @@ namespace ChannelCenter.API.Migrations
                     b.Property<string>("ReasoningTrace")
                         .HasColumnType("text");
 
-                    b.Property<int>("RecommendedSpecialtyId")
-                        .HasColumnType("integer");
+                    b.Property<string>("RecommendedSpecialty")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -593,9 +655,7 @@ namespace ChannelCenter.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("QuestionnaireId");
-
-                    b.HasIndex("RecommendedSpecialtyId");
+                    b.HasIndex("AppointmentId");
 
                     b.ToTable("TriageAssessments");
                 });
@@ -651,6 +711,16 @@ namespace ChannelCenter.API.Migrations
                     b.Navigation("AdminUser");
 
                     b.Navigation("Workflow");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.AgentWorkflow", b =>
+                {
+                    b.HasOne("ChannelCenter.API.Models.Appointment", "Appointment")
+                        .WithOne("SafetyAuditWorkflow")
+                        .HasForeignKey("ChannelCenter.API.Models.AgentWorkflow", "AppointmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Appointment");
                 });
 
             modelBuilder.Entity("ChannelCenter.API.Models.Appointment", b =>
@@ -762,19 +832,11 @@ namespace ChannelCenter.API.Migrations
 
             modelBuilder.Entity("ChannelCenter.API.Models.Referral", b =>
                 {
-                    b.HasOne("ChannelCenter.API.Models.Specialty", "TargetSpecialty")
-                        .WithMany()
-                        .HasForeignKey("TargetSpecialtyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("ChannelCenter.API.Models.TriageAssessment", "Triage")
                         .WithMany()
                         .HasForeignKey("TriageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("TargetSpecialty");
 
                     b.Navigation("Triage");
                 });
@@ -792,19 +854,13 @@ namespace ChannelCenter.API.Migrations
 
             modelBuilder.Entity("ChannelCenter.API.Models.TriageAssessment", b =>
                 {
-                    b.HasOne("ChannelCenter.API.Models.PreConsultationQuestionnaire", "Questionnaire")
-                        .WithMany()
-                        .HasForeignKey("QuestionnaireId");
-
-                    b.HasOne("ChannelCenter.API.Models.Specialty", "RecommendedSpecialty")
-                        .WithMany()
-                        .HasForeignKey("RecommendedSpecialtyId")
+                    b.HasOne("ChannelCenter.API.Models.Appointment", "Appointment")
+                        .WithMany("TriageAssessments")
+                        .HasForeignKey("AppointmentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Questionnaire");
-
-                    b.Navigation("RecommendedSpecialty");
+                    b.Navigation("Appointment");
                 });
 
             modelBuilder.Entity("ChannelCenter.API.Models.AgentWorkflow", b =>
@@ -812,6 +868,13 @@ namespace ChannelCenter.API.Migrations
                     b.Navigation("AdminApprovals");
 
                     b.Navigation("AuditLogs");
+                });
+
+            modelBuilder.Entity("ChannelCenter.API.Models.Appointment", b =>
+                {
+                    b.Navigation("SafetyAuditWorkflow");
+
+                    b.Navigation("TriageAssessments");
                 });
 
             modelBuilder.Entity("ChannelCenter.API.Models.ConsultationRoom", b =>

@@ -140,6 +140,11 @@ public class AdminAnalyticsService : IAdminAnalyticsService
     public async Task<AiSafetyMetricsDto> GetAiSafetyMetricsAsync()
     {
         var totalWorkflows = await _context.AgentWorkflows.CountAsync();
+        var safeFailedCount = await _context.AgentWorkflows
+            .CountAsync(w => w.Status == WorkflowStatus.SafeFailed);
+        var validationFailedCount = await _context.AgentWorkflows
+            .CountAsync(w => w.ValidationSummary != null &&
+                             w.Status == WorkflowStatus.PausedForApproval);
         var highImpactPaused = await _context.AgentWorkflows
             .CountAsync(w => w.RequiresHumanApproval || w.Status == WorkflowStatus.PausedForApproval);
 
@@ -150,6 +155,10 @@ public class AdminAnalyticsService : IAdminAnalyticsService
 
         var manualOverrides = await _context.AuditLogs
             .CountAsync(a => a.ToolCalled.StartsWith("ManualOverride"));
+        var durations = await _context.AuditLogs
+            .Where(a => a.DurationMs.HasValue)
+            .Select(a => a.DurationMs!.Value)
+            .ToListAsync();
 
         double interventionRate = totalWorkflows > 0
             ? Math.Round((double)(highImpactPaused + manualOverrides) / totalWorkflows * 100.0, 1)
@@ -163,6 +172,9 @@ public class AdminAnalyticsService : IAdminAnalyticsService
             RejectedCount = rejectedCount,
             RevisedCount = revisedCount,
             ManualOverridesCount = manualOverrides,
+            SafeFailedCount = safeFailedCount,
+            ValidationFailedCount = validationFailedCount,
+            AverageLatencyMs = durations.Count == 0 ? 0 : Math.Round(durations.Average(), 1),
             HumanInterventionRate = interventionRate
         };
     }

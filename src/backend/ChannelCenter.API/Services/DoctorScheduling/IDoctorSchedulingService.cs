@@ -36,4 +36,13 @@ public interface IDoctorSchedulingService
     Task<ConsultationDto?> GetConsultationByAppointmentIdAsync(int appointmentId);
     Task<ConsultationDto> CreateConsultationAsync(CreateConsultationDto dto);
     Task<ConsultationDto?> UpdateAttendanceStatusAsync(int id, AttendanceStatus status);
+
+    // Agentic AI Subsystem Integration (Student 2: Schedule & Capacity Optimization Agent)
+    Task<IEnumerable<object>> GetPendingAppointmentsAsync();
+    Task<TriageAssessment?> GetTriageAssessmentForAppointmentAsync(int appointmentId);
+    Task<object> OptimizeScheduleWithAiAsync(object inputDto);
+    Task<DoctorScheduleDto> ApproveAiScheduleWorkflowAsync(string workflowId);
 }
+
+
+

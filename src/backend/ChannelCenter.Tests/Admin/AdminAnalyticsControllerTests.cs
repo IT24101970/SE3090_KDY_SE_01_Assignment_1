@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ChannelCenter.API.Controllers.Admin;
 using ChannelCenter.API.DTOs.Admin;
 using ChannelCenter.API.Models;
+using ChannelCenter.API.Services.Admin;
 using ChannelCenter.Tests;
 using Xunit;
 
@@ -25,16 +26,16 @@ public class AdminAnalyticsControllerTests
 
         context.TriageAssessments.Add(new TriageAssessment
         {
-            PatientId              = 1,
-            RawSymptoms            = "chest pain",
-            UrgencyScore           = 95,
-            UrgencyLevel           = UrgencyLevel.Emergency,
-            RecommendedSpecialtyId = 1
+            AppointmentId        = 1,
+            RawSymptoms          = "chest pain",
+            UrgencyScore         = 95,
+            UrgencyLevel         = UrgencyLevel.Emergency,
+            RecommendedSpecialty = "Cardiology"
         });
 
         await context.SaveChangesAsync();
 
-        var controller = new AdminAnalyticsController(context);
+        var controller = new AdminAnalyticsController(new AdminAnalyticsService(context));
 
         // Act
         var result = await controller.GetOverview();
@@ -52,7 +53,7 @@ public class AdminAnalyticsControllerTests
     public async Task GetOverview_WithNoData_ReturnsZeroCounts()
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new AdminAnalyticsController(context);
+        var controller = new AdminAnalyticsController(new AdminAnalyticsService(context));
 
         var result = await controller.GetOverview();
 
@@ -81,7 +82,7 @@ public class AdminAnalyticsControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AdminAnalyticsController(context);
+        var controller = new AdminAnalyticsController(new AdminAnalyticsService(context));
         var result = await controller.GetDailyAppointments(yesterday, today);
 
         var ok   = Assert.IsType<OkObjectResult>(result);
@@ -103,14 +104,14 @@ public class AdminAnalyticsControllerTests
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
 
         context.TriageAssessments.AddRange(
-            new TriageAssessment { PatientId = 1, RawSymptoms = "s1", UrgencyScore = 90, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialtyId = 1 },
-            new TriageAssessment { PatientId = 2, RawSymptoms = "s2", UrgencyScore = 90, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialtyId = 1 },
-            new TriageAssessment { PatientId = 3, RawSymptoms = "s3", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Low,       RecommendedSpecialtyId = 1 },
-            new TriageAssessment { PatientId = 4, RawSymptoms = "s4", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Low,       RecommendedSpecialtyId = 1 }
+            new TriageAssessment { AppointmentId = 1, RawSymptoms = "s1", UrgencyScore = 90, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialty = "Cardiology" },
+            new TriageAssessment { AppointmentId = 2, RawSymptoms = "s2", UrgencyScore = 90, UrgencyLevel = UrgencyLevel.Emergency, RecommendedSpecialty = "Cardiology" },
+            new TriageAssessment { AppointmentId = 3, RawSymptoms = "s3", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Low,       RecommendedSpecialty = "General Medicine" },
+            new TriageAssessment { AppointmentId = 4, RawSymptoms = "s4", UrgencyScore = 40, UrgencyLevel = UrgencyLevel.Low,       RecommendedSpecialty = "General Medicine" }
         );
         await context.SaveChangesAsync();
 
-        var controller = new AdminAnalyticsController(context);
+        var controller = new AdminAnalyticsController(new AdminAnalyticsService(context));
         var result = await controller.GetTriageRatios();
 
         var ok   = Assert.IsType<OkObjectResult>(result);
@@ -125,7 +126,7 @@ public class AdminAnalyticsControllerTests
     public async Task GetTriageRatios_WithNoData_ReturnsAllLevelsAtZero()
     {
         using var context = TestDbContextFactory.CreateInMemoryDbContext();
-        var controller = new AdminAnalyticsController(context);
+        var controller = new AdminAnalyticsController(new AdminAnalyticsService(context));
 
         var result = await controller.GetTriageRatios();
 
@@ -157,7 +158,7 @@ public class AdminAnalyticsControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new AdminAnalyticsController(context);
+        var controller = new AdminAnalyticsController(new AdminAnalyticsService(context));
         var result = await controller.GetAiMetrics();
 
         var ok  = Assert.IsType<OkObjectResult>(result);
