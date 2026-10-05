@@ -1,16 +1,59 @@
-# React + Vite
+# 🌐 ChannelCenter Web Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **React 19 + Vite Web Portal** for Clinical Administration, Doctor Scheduling & Staff Intake Management.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📌 Overview
 
-## React Compiler
+The **ChannelCenter Web Application** provides the administrative and clinical management portal for the healthcare system. Built using **React 19** and **Vite**, it allows hospital administrators, doctors, and triage staff to manage patient intakes, register staff members, configure scheduling channels, and oversee automated safety audit logs.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## ✨ Features
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- 🔑 **Role-Based Authentication**: Secure JWT login interface for Admin, Doctor, and Nurse roles.
+- 📋 **Staff Registration & Management**: Admin portal for registering doctors and medical staff.
+- 📅 **Doctor Availability & Scheduling**: Manage session times, slots, and doctor queue channels.
+- 🛡️ **Safety Audit Log Portal**: Review flagged workflows, safety risk assessments, and clinical approvals.
+
+---
+
+## 🛠 Tech Stack
+
+- **Framework**: React 19
+- **Build Tool**: Vite 8
+- **Testing**: Vitest + React Testing Library + jsdom
+- **Linting**: ESLint 10
+
+---
+
+## 🚀 Local Development Setup
+
+```bash
+# 1. Navigate to web directory
+cd src/web
+
+# 2. Install dependencies
+npm install
+
+# 3. Start development server
+npm run dev
+
+# 4. Build for production
+npm run build
+```
+
+The web app will run locally at `http://localhost:5173`.
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run unit and integration tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+```
