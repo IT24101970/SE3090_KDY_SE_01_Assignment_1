@@ -187,6 +187,8 @@ builder.Services.AddHttpClient<ISafetyAuditorService, SafetyAuditorService>((ser
 // ── Build App ─────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+app.UseCors("AllowFrontend");
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -194,8 +196,6 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-app.UseHttpsRedirection();
-app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
