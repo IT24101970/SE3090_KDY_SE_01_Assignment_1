@@ -144,6 +144,7 @@ describe('SlotBookingModal', () => {
         scheduleId: 9,
         appointmentDate: '2026-09-29T13:45:00Z',
         reasonForVisit: 'Severe migraine and nausea for two days',
+        skipAiWorkflows: true,
       });
       expect(handleBooked).toHaveBeenCalledTimes(1);
       expect(handleClose).toHaveBeenCalledTimes(1);

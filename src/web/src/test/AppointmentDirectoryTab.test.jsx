@@ -139,7 +139,7 @@ describe('AppointmentDirectoryTab', () => {
     await waitFor(() => screen.getByText('Alice Perera'));
 
     // Locate the Cancel button using its title attribute (avoids ambiguity with pill buttons)
-    const cancelBtn = screen.getAllByTitle('Cancel booking with required reason')[0];
+    const cancelBtn = screen.getAllByTitle('Cancel appointment booking')[0];
     await userEvent.click(cancelBtn);
 
     expect(screen.getByTestId('cancel-modal')).toBeInTheDocument();

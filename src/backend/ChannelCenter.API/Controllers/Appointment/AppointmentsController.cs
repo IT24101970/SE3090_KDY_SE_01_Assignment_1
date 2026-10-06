@@ -66,7 +66,12 @@ public class AppointmentsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        if (HttpContext.User != null && HttpContext.User.Identity?.IsAuthenticated == true && HttpContext.User.Claims.Any())
+        if (HttpContext.User == null || HttpContext.User.Identity?.IsAuthenticated != true)
+        {
+            return Unauthorized(new { message = "User is unauthenticated." });
+        }
+
+        if (HttpContext.User.Claims.Any())
         {
             var nameId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!string.IsNullOrEmpty(nameId) && int.TryParse(nameId, out var userId) && _patientService != null)
