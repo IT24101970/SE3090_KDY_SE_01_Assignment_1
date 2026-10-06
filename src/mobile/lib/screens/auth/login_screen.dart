@@ -78,12 +78,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _fillSampleCredentials(String email, String password) {
-    setState(() {
-      _emailController.text = email;
-      _passwordController.text = password;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -246,35 +240,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Colors.indigo,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 28),
-
-                      // Quick Demo Autofill Chips
-                      Text(
-                        'Demo Quick Autofill:',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          ActionChip(
-                            avatar: const Icon(Icons.person, size: 14),
-                            label: const Text('Patient Demo', style: TextStyle(fontSize: 11)),
-                            onPressed: () => _fillSampleCredentials('kamal@example.com', 'Patient@123'),
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.medical_services, size: 14),
-                            label: const Text('Doctor Demo', style: TextStyle(fontSize: 11)),
-                            onPressed: () => _fillSampleCredentials('silva@hospital.com', 'DoctorPass123!'),
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.admin_panel_settings, size: 14),
-                            label: const Text('Admin Demo', style: TextStyle(fontSize: 11)),
-                            onPressed: () => _fillSampleCredentials('admin@channelcenter.hospital', 'Admin123!'),
                           ),
                         ],
                       ),
