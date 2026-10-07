@@ -10,9 +10,15 @@ export default function StaffDoctorSchedulingDashboard() {
   const [dbConnected, setDbConnected] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:5066/api/doctor-scheduling/doctors')
-      ? setDbConnected(true)
-      : setDbConnected(false);
+    const apiBase = import.meta.env.VITE_API_BASE_URL 
+      ? `${import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '')}/api/doctor-scheduling`
+      : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+        ? 'https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net/api/doctor-scheduling'
+        : 'http://localhost:5066/api/doctor-scheduling');
+
+    fetch(`${apiBase}/doctors`)
+      .then(res => setDbConnected(res.ok))
+      .catch(() => setDbConnected(false));
   }, []);
 
   return (

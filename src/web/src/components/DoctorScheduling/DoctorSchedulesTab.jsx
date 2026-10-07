@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
 import AiScheduleOptimizerModal from './AiScheduleOptimizerModal';
 
-const API_BASE = 'http://localhost:5066/api/doctor-scheduling';
+const getDoctorSchedulingApiBase = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && typeof envUrl === 'string' && !envUrl.includes('localhost')) {
+    return `${envUrl.replace(/\/$/, '')}/api/doctor-scheduling`;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net/api/doctor-scheduling';
+  }
+  return 'http://localhost:5066/api/doctor-scheduling';
+};
+
+const API_BASE = getDoctorSchedulingApiBase();
 
 export default function DoctorSchedulesTab() {
   const [schedules, setSchedules] = useState([]);

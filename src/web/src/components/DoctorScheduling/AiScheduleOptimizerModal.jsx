@@ -1,7 +1,25 @@
 import { useState, useEffect } from 'react';
 
-const AI_API_BASE = 'http://localhost:8000/api/agent/doctor-scheduling';
-const BACKEND_API_BASE = 'http://localhost:5066/api/doctor-scheduling';
+const getDoctorSchedulingApiBase = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && typeof envUrl === 'string' && !envUrl.includes('localhost')) {
+    return `${envUrl.replace(/\/$/, '')}/api/doctor-scheduling`;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net/api/doctor-scheduling';
+  }
+  return 'http://localhost:5066/api/doctor-scheduling';
+};
+
+const getAiServiceApiBase = () => {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://channel-center-ai-service.azurewebsites.net/api/agent/doctor-scheduling';
+  }
+  return 'http://localhost:8000/api/agent/doctor-scheduling';
+};
+
+const AI_API_BASE = getAiServiceApiBase();
+const BACKEND_API_BASE = getDoctorSchedulingApiBase();
 
 export default function AiScheduleOptimizerModal({ isOpen, onClose, doctors, rooms, onScheduleCreated }) {
   const [pendingAppointments, setPendingAppointments] = useState([]);

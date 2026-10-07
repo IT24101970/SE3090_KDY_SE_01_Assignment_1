@@ -68,7 +68,11 @@ export async function apiRequest(path, options = {}) {
 }
 
 export const workflowApi = {
-  list: async (status) => (await apiRequest(`/api/admin/workflows${status ? `?status=${status}` : ''}`)).map(normalizeWorkflow),
+  list: async (status) => {
+    const res = await apiRequest(`/api/admin/workflows${status ? `?status=${status}` : ''}`);
+    const items = Array.isArray(res) ? res : (res?.items || res?.Items || []);
+    return items.map(normalizeWorkflow);
+  },
   detail: async (id) => normalizeWorkflow(await apiRequest(`/api/admin/workflows/${id}`)),
   decide: async (id, decision) => {
     const response = await apiRequest(`/api/admin/workflows/${id}/approve`, { method: 'POST', body: JSON.stringify({ decision: approvalDecisions.indexOf(decision) }) });
@@ -130,7 +134,7 @@ export const patientApi = {
 };
 
 export const appointmentApi = {
-  list: (filter = {}) => {
+  list: async (filter = {}) => {
     const params = new URLSearchParams();
     if (filter.patientId) params.append('patientId', String(filter.patientId));
     if (filter.doctorId) params.append('doctorId', String(filter.doctorId));
@@ -142,7 +146,16 @@ export const appointmentApi = {
     if (filter.page) params.append('page', String(filter.page));
     if (filter.pageSize) params.append('pageSize', String(filter.pageSize));
     const qs = params.toString();
-    return apiRequest(`/api/appointments${qs ? `?${qs}` : ''}`);
+    const res = await apiRequest(`/api/appointments${qs ? `?${qs}` : ''}`);
+    if (Array.isArray(res)) {
+      return { items: res, totalCount: res.length };
+    }
+    return {
+      items: res?.items || res?.Items || [],
+      totalCount: res?.totalCount ?? res?.TotalCount ?? (res?.items?.length || 0),
+      page: res?.page || filter.page || 1,
+      pageSize: res?.pageSize || filter.pageSize || 10,
+    };
   },
   getById: (id) => apiRequest(`/api/appointments/${id}`),
   getSlots: (filter = {}) => {

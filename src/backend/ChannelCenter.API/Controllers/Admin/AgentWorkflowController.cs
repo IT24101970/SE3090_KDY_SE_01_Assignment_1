@@ -13,7 +13,7 @@ namespace ChannelCenter.API.Controllers.Admin;
 
 [ApiController]
 [Route("api/admin/workflows")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,admin")]
 public class AgentWorkflowsController : ControllerBase
 {
     private readonly IAgentWorkflowService _workflowService;

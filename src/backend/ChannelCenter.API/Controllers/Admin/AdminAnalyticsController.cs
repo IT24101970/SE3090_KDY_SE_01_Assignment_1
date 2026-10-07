@@ -8,7 +8,7 @@ namespace ChannelCenter.API.Controllers.Admin;
 
 [ApiController]
 [Route("api/admin/analytics")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,admin")]
 public class AdminAnalyticsController : ControllerBase
 {
     private readonly IAdminAnalyticsService _analyticsService;

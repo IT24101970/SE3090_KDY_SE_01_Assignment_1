@@ -10,7 +10,7 @@ namespace ChannelCenter.API.Controllers.Admin;
 
 [ApiController]
 [Route("api/admin/overrides")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,admin")]
 public class AdminOverrideController : ControllerBase
 {
     private readonly IAdminOverrideService _overrideService;

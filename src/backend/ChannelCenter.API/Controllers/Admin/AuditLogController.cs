@@ -9,7 +9,7 @@ namespace ChannelCenter.API.Controllers.Admin;
 
 [ApiController]
 [Route("api/admin/audit-logs")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,admin")]
 public class AuditLogController : ControllerBase
 {
     private readonly IAuditLogService _auditLogService;
