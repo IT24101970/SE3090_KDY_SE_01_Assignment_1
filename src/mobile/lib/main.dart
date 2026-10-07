@@ -8,9 +8,11 @@ import 'screens/admin/admin_system_overview_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/doctor/doctor_dashboard_screen.dart';
 import 'screens/patient/patient_dashboard_screen.dart';
+import 'services/local_notification_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LocalNotificationService.initialize();
   runApp(const ChannelCenterMobileApp());
 }
 

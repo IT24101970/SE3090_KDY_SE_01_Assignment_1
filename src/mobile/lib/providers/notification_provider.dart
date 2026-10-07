@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/notification_model.dart';
+import '../services/local_notification_service.dart';
 
 class NotificationProvider with ChangeNotifier {
   final List<AppNotification> _notifications = [];
@@ -24,6 +25,13 @@ class NotificationProvider with ChangeNotifier {
     if (!_notifications.any((n) => n.id == notification.id)) {
       _notifications.insert(0, notification);
       notifyListeners();
+
+      // Trigger native OS status bar notification popup
+      LocalNotificationService.showNotification(
+        id: notification.id.hashCode,
+        title: notification.title,
+        body: notification.message,
+      );
     }
   }
 
