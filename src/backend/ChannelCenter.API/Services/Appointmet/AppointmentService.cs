@@ -111,7 +111,7 @@ public class AppointmentService : IAppointmentService
             ScheduleId = dto.ScheduleId,
             AppointmentDate = apptDate,
             Status = AppointmentStatus.Pending,
-            ReasonForVisit = dto.ReasonForVisit.Trim(),
+            ReasonForVisit = (dto.ReasonForVisit ?? string.Empty).Trim(),
             CreatedAt = nowUtc,
             UpdatedAt = nowUtc
         };
@@ -195,43 +195,44 @@ public class AppointmentService : IAppointmentService
             return;
         }
 
-        var workflow = await _context.AgentWorkflows
-            .FirstOrDefaultAsync(w => w.AppointmentId == appointment.Id);
-
-        if (workflow == null)
-        {
-            workflow = new AgentWorkflow
-            {
-                AppointmentId = appointment.Id,
-                Objective = $"Safety review for appointment {appointment.Id}",
-                Status = WorkflowStatus.Running,
-                RequiresHumanApproval = false,
-                CorrelationId = $"appointment-{appointment.Id}-safety-audit",
-                ContractVersion = "safety-audit.v1",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            _context.AgentWorkflows.Add(workflow);
-            await _context.SaveChangesAsync();
-        }
-
-        var request = new SafetyAuditStartRequestDto
-        {
-            Objective = workflow.Objective,
-            CorrelationId = workflow.CorrelationId,
-            ContractVersion = workflow.ContractVersion,
-            SourceAgent = "Component2.AppointmentService",
-            AppointmentId = appointment.Id,
-            Proposal = new Dictionary<string, object?>
-            {
-                ["action"] = "review_appointment",
-                ["appointmentId"] = appointment.Id,
-                ["evidence"] = new[] { $"appointment:{appointment.Id}" }
-            }
-        };
-
+        AgentWorkflow? workflow = null;
         try
         {
+            workflow = await _context.AgentWorkflows
+                .FirstOrDefaultAsync(w => w.AppointmentId == appointment.Id);
+
+            if (workflow == null)
+            {
+                workflow = new AgentWorkflow
+                {
+                    AppointmentId = appointment.Id,
+                    Objective = $"Safety review for appointment {appointment.Id}",
+                    Status = WorkflowStatus.Running,
+                    RequiresHumanApproval = false,
+                    CorrelationId = $"appointment-{appointment.Id}-safety-audit",
+                    ContractVersion = "safety-audit.v1",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.AgentWorkflows.Add(workflow);
+                await _context.SaveChangesAsync();
+            }
+
+            var request = new SafetyAuditStartRequestDto
+            {
+                Objective = workflow.Objective,
+                CorrelationId = workflow.CorrelationId,
+                ContractVersion = workflow.ContractVersion,
+                SourceAgent = "Component2.AppointmentService",
+                AppointmentId = appointment.Id,
+                Proposal = new Dictionary<string, object?>
+                {
+                    ["action"] = "review_appointment",
+                    ["appointmentId"] = appointment.Id,
+                    ["evidence"] = new[] { $"appointment:{appointment.Id}" }
+                }
+            };
+
             var auditResult = await _safetyAuditorService.StartAsync(workflow.Id, request);
             workflow.Status = auditResult.Status;
             workflow.RequiresHumanApproval = auditResult.RequiresApproval;
@@ -243,15 +244,25 @@ public class AppointmentService : IAppointmentService
             workflow.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
-        catch (Exception error) when (error is HttpRequestException or InvalidOperationException)
+        catch (Exception error)
         {
-            // The appointment is already durable; the workflow records an unavailable auditor.
-            workflow.Status = WorkflowStatus.SafeFailed;
-            workflow.ErrorCode = "auditor_unavailable";
-            workflow.ErrorMessage = error.Message.Length > 500 ? error.Message[..500] : error.Message;
-            workflow.SafeFailedAt = DateTime.UtcNow;
-            workflow.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            if (workflow != null)
+            {
+                // The appointment is already durable; the workflow records an unavailable auditor.
+                workflow.Status = WorkflowStatus.SafeFailed;
+                workflow.ErrorCode = "auditor_unavailable";
+                workflow.ErrorMessage = error.Message.Length > 500 ? error.Message[..500] : error.Message;
+                workflow.SafeFailedAt = DateTime.UtcNow;
+                workflow.UpdatedAt = DateTime.UtcNow;
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch
+                {
+                    // Ignore DB save errors on safe-fail logging
+                }
+            }
         }
     }
 
