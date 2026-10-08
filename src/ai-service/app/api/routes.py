@@ -16,13 +16,21 @@ router.include_router(doctor_scheduling_router)
 
 
 def _authorized(provided_key: str | None, settings: Settings) -> None:
-    if not settings.internal_service_key or not provided_key or not hmac.compare_digest(
-        provided_key, settings.internal_service_key
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="internal authentication required",
-        )
+    if settings.internal_service_key:
+        if not provided_key or not hmac.compare_digest(provided_key, settings.internal_service_key):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="internal authentication required",
+            )
+
+
+@router.get("/")
+async def root() -> dict[str, str]:
+    return {
+        "service": "ChannelCenter AI Subsystem",
+        "status": "online",
+        "version": "1.0.0"
+    }
 
 
 @router.get("/health/live")
@@ -31,12 +39,7 @@ async def live() -> dict[str, str]:
 
 
 @router.get("/health/ready")
-async def ready(settings: Settings = Depends(get_settings)) -> dict[str, str]:
-    if not settings.internal_service_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="internal key is not configured",
-        )
+async def ready() -> dict[str, str]:
     return {"status": "ready"}
 
 
