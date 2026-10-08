@@ -3,7 +3,9 @@ from typing import Dict, Any, List
 from datetime import datetime
 import time
 
-DOTNET_API_BASE_URL = "http://localhost:5066/api/doctor-scheduling"
+import os
+
+DOTNET_API_BASE_URL = os.getenv("DOTNET_API_BASE_URL", "https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net/api/doctor-scheduling")
 
 SPECIALTY_DOCTOR_MAP = {
     "cardiology": {"id": 1, "doctorName": "Dr. Sarah Jenkins", "specialtyName": "Cardiology", "userId": 2},

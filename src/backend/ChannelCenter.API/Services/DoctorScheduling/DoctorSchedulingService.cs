@@ -627,7 +627,7 @@ public class DoctorSchedulingService : IDoctorSchedulingService
             : new HttpClient();
         if (client.BaseAddress == null)
         {
-            client.BaseAddress = new Uri("http://localhost:8000");
+            client.BaseAddress = new Uri("https://channel-center-ai-service.azurewebsites.net");
         }
         return client;
     }
