@@ -195,18 +195,3 @@ cd src/ai-service && pytest
 ```
 
 ---
-
-## 📜 Academic Compliance & Guidelines
-
-- **Module:** SE3090 – Software Engineering Frameworks
-- **Weighting:** 25% of final module mark
-- **AI Policy Level:** Level 4 — Full AI declaration. Development AI assistance used in accordance with SLIIT academic governance.
-
----
-
-## 🤝 Authors & Contributors
-
-* **SLIIT Faculty of Computing** — Department of Software Engineering & Artificial Intelligence
-* **Group:** SE3090_KDY_SE_01
-
----
