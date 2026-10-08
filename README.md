@@ -2,7 +2,7 @@
 
 > **SE3090 — Software Engineering Frameworks**  
 > **Academic Year:** Year 3, Semester 1 (2026) | **SLIIT**  
-> **Group Assignment 1** | **Repository:** `SE3090_KDY_SE_01`
+> **Group Assignment 1** | **Repository:** [GitHub](https://github.com/IT24101970/SE3090_KDY_SE_01_Assignment_1.git)
 
 ---
 
@@ -173,19 +173,6 @@ cd src/mobile
 flutter pub get
 flutter run
 ```
-
----
-
-## 🔑 Environment Variables & Security Configuration
-
-| Service | Key Name | Default / Sample Value | Description |
-| :--- | :--- | :--- | :--- |
-| **Backend API** | `ConnectionStrings__DefaultConnection` | `Host=localhost;Database=channel_center_db;...` | PostgreSQL Connection String |
-| **Backend API** | `Jwt__SecretKey` | `ChannelCenterDevSecret_MustBe32CharsOrMore!` | HMAC-SHA256 Signing key for JWT |
-| **Backend API** | `SafetyAuditor__BaseUrl` | `http://localhost:8001` | Internal URL of Python AI Subsystem |
-| **Backend API** | `SafetyAuditor__InternalServiceKey` | `local-development-secret` | Shared secret for backend-to-AI calls |
-| **AI Service** | `INTERNAL_SERVICE_KEY` | `local-development-secret` | Shared authentication key for incoming requests |
-| **AI Service** | `PORT` | `8001` | FastAPI listening port |
 
 ---
 

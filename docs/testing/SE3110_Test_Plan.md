@@ -1,7 +1,8 @@
 # SE3110: Software Testing & Quality Evaluation - Master Test Plan
 **Project Name:** SE3090 Integrated ChannelCenter System  
+**Group ID:** SE3090_KDY_SE_01  
 **Academic Year:** Year 3 Semester 1 (2026)  
-**Module:** SE3110 / SE3090 Software Testing and Quality Evaluation  
+**Module:** SE3110 / SE3090 Software Engineering Frameworks  
 
 ---
 
@@ -29,15 +30,16 @@ graph TD
 
 ### In-Scope Technical Testing Areas:
 
-| Testing Area | Target Components | Primary Tools / Frameworks | Test Objectives |
-| :--- | :--- | :--- | :--- |
-| **Backend / API Testing** | ASP.NET Core Controllers, Services, DTOs | xUnit, Moq, EF Core | Unit & integration testing of appointment booking, patient profiles, triage claims, auth checks. |
-| **Database Testing** | EF Core DbContext, PostgreSQL models | xUnit + EF Core In-Memory | Referential integrity, cascade constraints, unique indexes, transaction handling. |
-| **React Web Application** | Admin & Staff Web Console | Vitest, React Testing Library, jsdom | UI component state, form validation, modal popups, directory filters, async actions. |
-| **Flutter Mobile Application** | Mobile Patient & Staff App | `flutter_test`, Provider stubs | Widget rendering, screen navigation, input field validation, role-based dashboards. |
-| **Agentic AI Testing** | Python AI Subsystem | `pytest`, Pydantic | Symptom triage accuracy, specialty matching, severity index, prompt injection defense. |
-| **Integrated E2E Testing** | Multi-tier Workflow | Python integration scripts, Vitest | End-to-end flow: Symptom Triage -> AI Assessment -> Doctor Slot Lock -> Audit Trail. |
-| **Non-Functional Testing** | Backend API & AI Endpoints | k6, OWASP ZAP / Security Scripts | Concurrency load (50 VUs), response latency (< 300ms p95), security header validation. |
+| Testing Area | Target Components | Primary Tools / Frameworks | Lead Owner | Test Objectives |
+| :--- | :--- | :--- | :--- | :--- |
+| **Backend API (Appointments & Patients)** | `AppointmentsController`, `PatientsController` | xUnit, Moq, EF Core | **Shashika** | Patient registration, slot booking generation, auth checks, history filtering. |
+| **Backend API (Doctor Scheduling)** | `DoctorSchedulesController`, `DoctorsController`, `DoctorLeavesController`, `ConsultationRoomsController` | xUnit, EF Core | **Thanuja** | Doctor schedule creation, room conflict detection, doctor profile creation, leave approval. |
+| **Backend API (Triage & Scoring)** | `TriageController`, `TriageService` | xUnit, EF Core | **Imasha** | Urgency scoring calculation, symptom intake submission, severity rating logic. |
+| **Backend API (Admin & Safety Audit)** | `AdminController`, `InternalSafetyAuditorController` | xUnit, EF Core | **Kavindu** | System overview analytics, admin override approval, audit trail logging. |
+| **React Web Application** | React 19 Frontend Components | Vitest, React Testing Library, jsdom | **Shashika / Thanuja / Imasha / Kavindu** | Component rendering, modal auto-selection, real-time table filter, clinical review board, audit console. |
+| **Flutter Mobile Application** | Flutter Mobile App Screens | `flutter_test`, Provider stubs | **Shashika / Thanuja / Imasha / Kavindu** | Widget rendering, screen navigation, input field validation, role-based dashboards. |
+| **Agentic AI Testing** | Python AI Subsystem | `pytest`, Pydantic | **Shashika / Thanuja / Imasha / Kavindu** | Intake parsing (Shashika), Schedule optimization (Thanuja), Triage matching (Imasha), Safety audit (Kavindu). |
+| **Non-Functional & E2E Testing** | Load, Security & Cross-Component Flow | k6, OWASP ZAP / Security Scripts | **Kavindu** | Concurrency load (50 VUs), response latency (< 300ms p95), security header & prompt injection defense. |
 
 ---
 
@@ -65,14 +67,14 @@ graph TD
 
 ---
 
-## 5. Roles & Responsibilities Matrix
+## 5. Team Member Roles & Responsibilities Matrix
 
-| Team Member Role | Assigned Testing Areas | Deliverables |
-| :--- | :--- | :--- |
-| **Backend Developer / QA Lead** | ASP.NET Core xUnit tests, DB Integration, k6 Load Testing | `ChannelCenter.Tests`, `k6_load_test.js`, Performance Graphs |
-| **Frontend QA Engineer** | React Web Vitest suites, Component & Modal tests | `src/web/src/test/*.test.jsx`, Web Test Evidence |
-| **Mobile QA Engineer** | Flutter `flutter_test` widget & screen validation | `src/mobile/test/widget_test.dart`, Mobile Execution Logs |
-| **AI Systems QA Specialist** | Agentic AI `pytest` suites, Prompt Injection Defense | `src/ai-service/tests/*`, AI Evaluation Summary |
+| Team Member | Component Focus (Development Roadmap) | Test Suite Ownership | Deliverables |
+| :--- | :--- | :--- | :--- |
+| **Shashika** | Component 1: Patient & Booking System | `AppointmentsControllerTests.cs`, `PatientTests.cs`, `SlotBookingModal.test.jsx`, `PatientDirectoryTab.test.jsx`, `test_intake_agent.py`, Mobile Patient Booking tests | Patient API & UI test suites, BUG-01 & BUG-02 fix evidence |
+| **Thanuja** | Component 2: Doctor Scheduling System | `DoctorSchedulesControllerTests.cs`, `DoctorsControllerTests.cs`, `DoctorLeavesControllerTests.cs`, `ConsultationRoomsControllerTests.cs`, `AppointmentDirectoryTab.test.jsx`, `test_appointment_rules.py`, Mobile Doctor Agenda tests | Doctor Scheduling API & UI test suites, BUG-03 fix evidence |
+| **Imasha** | Component 3: Urgency & Triage System | `TriageControllerTests.cs`, `ClinicalReviewView.test.jsx`, `test_triage_agent.py`, Mobile Symptom Wizard tests | Triage API, AI agent & Clinical Board test suites |
+| **Kavindu** | Component 4: AI Audit, Safety & Load | `AdminControllerTests.cs`, `AuditTrailTab.test.jsx`, `IntakeAgentConsoleTab.test.jsx`, `test_security.py`, `test_security_audit.py`, `test_integrated_workflow.py`, `k6_load_test.js` | Admin API, AI Audit & k6 Performance Load & Security test suites |
 
 ---
 
@@ -84,4 +86,4 @@ graph TD
 | **Unit & Service Test Suite Execution** | Oct 01, 2026 | Completed |
 | **Defect Identification & Retesting** | Oct 04, 2026 | Completed |
 | **Non-Functional & E2E Test Execution** | Oct 06, 2026 | Completed |
-| **Final Documentation & Viva Prep** | Oct 06, 2026 | Completed |
+| **Final Documentation & Viva Prep** | Oct 07, 2026 | Completed |

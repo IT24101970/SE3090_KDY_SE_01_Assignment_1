@@ -13,7 +13,7 @@ const getDoctorSchedulingApiBase = () => {
 
 const getAiServiceApiBase = () => {
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return 'https://channel-center-ai-service.azurewebsites.net/api/agent/doctor-scheduling';
+    return 'https://channel-center-ai-service-dmccgqh9bddyfhcy.eastasia-01.azurewebsites.net';
   }
   return 'http://localhost:8000/api/agent/doctor-scheduling';
 };
@@ -124,7 +124,7 @@ export default function AiScheduleOptimizerModal({ isOpen, onClose, doctors, roo
       const createdSchedule = await res.json();
       setSuccessAlert('Recommendation Approved! Doctor Schedule committed to database.');
       if (onScheduleCreated) onScheduleCreated(createdSchedule);
-      
+
       setTimeout(() => {
         onClose();
       }, 1800);
