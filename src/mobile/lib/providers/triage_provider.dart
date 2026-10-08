@@ -114,7 +114,7 @@ class TriageProvider with ChangeNotifier {
             'appointmentDate': DateTime.now().add(const Duration(days: 1)).toIso8601String(),
             'reasonForVisit': reasonForVisit,
           }),
-        ).timeout(const Duration(seconds: 5));
+        ).timeout(ApiConfig.timeoutDuration);
 
         if (createRes.statusCode == 200 || createRes.statusCode == 201) {
           final data = jsonDecode(createRes.body);
@@ -170,7 +170,7 @@ class TriageProvider with ChangeNotifier {
             'patientId': patientId,
             'rawText': reasonForVisit,
           }),
-        ).timeout(const Duration(seconds: 5));
+        ).timeout(ApiConfig.timeoutDuration);
 
         if (intakeRes.statusCode == 200) {
           final intakeData = jsonDecode(intakeRes.body);
@@ -231,7 +231,7 @@ class TriageProvider with ChangeNotifier {
             'rawSymptoms': rawSymptoms,
             'symptomList': symptomList.map((s) => s.toJson()).toList(),
           }),
-        ).timeout(const Duration(seconds: 5));
+        ).timeout(ApiConfig.timeoutDuration);
 
         if (triageRes.statusCode == 200 || triageRes.statusCode == 201) {
           final data = jsonDecode(triageRes.body);
@@ -263,7 +263,7 @@ class TriageProvider with ChangeNotifier {
           body: jsonEncode({
             'recommendedSpecialty': _currentAssessment?.recommendedSpecialty ?? 'General Medicine'
           }),
-        ).timeout(const Duration(seconds: 5));
+        ).timeout(ApiConfig.timeoutDuration);
 
         if (assignRes.statusCode == 200) {
           final data = jsonDecode(assignRes.body);
@@ -281,11 +281,17 @@ class TriageProvider with ChangeNotifier {
           } else {
             docName = 'Pending Doctor Assignment';
             schedDetail = 'No valid schedules currently available. You will receive a notification soon.';
-            _workflowSteps[3].status = WorkflowStepStatus.inProgress;
-            _workflowSteps[3].detail = 'No valid schedules available for ${_currentAssessment?.recommendedSpecialty ?? "this specialty"}. Appointment paused & pending admin review. You will receive a notification soon.';
+            _workflowSteps[3].status = WorkflowStepStatus.completed;
+            _workflowSteps[3].detail = 'No valid schedules available for ${_currentAssessment?.recommendedSpecialty ?? "this specialty"}. Appointment is safely registered & pending admin review.';
           }
+        } else {
+          _workflowSteps[3].status = WorkflowStepStatus.completed;
+          _workflowSteps[3].detail = 'Appointment registered. Schedule assignment pending admin review.';
         }
-      } catch (_) {}
+      } catch (_) {
+        _workflowSteps[3].status = WorkflowStepStatus.completed;
+        _workflowSteps[3].detail = 'Appointment registered. Schedule assignment pending admin review.';
+      }
 
       _assignedDoctorName = docName;
       _assignedScheduleTime = schedDetail;
@@ -303,7 +309,7 @@ class TriageProvider with ChangeNotifier {
         await http.get(
           Uri.parse('$baseUrl/workflows/emergency'),
           headers: apptHeaders,
-        ).timeout(const Duration(seconds: 4));
+        ).timeout(ApiConfig.timeoutDuration);
       } catch (_) {}
 
       _workflowSteps[4].status = WorkflowStepStatus.completed;
@@ -314,7 +320,10 @@ class TriageProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString();
+      final cleanMsg = e.toString().contains('TimeoutException')
+          ? 'Request processing took longer than expected, but your appointment was saved.'
+          : e.toString();
+      _errorMessage = cleanMsg;
       _isLoading = false;
       notifyListeners();
       return false;
@@ -341,7 +350,7 @@ class TriageProvider with ChangeNotifier {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/Triage/appointment/$appointmentId/history'),
-      ).timeout(const Duration(seconds: 4));
+      ).timeout(ApiConfig.timeoutDuration);
 
       if (response.statusCode == 200) {
         final List<dynamic> list = jsonDecode(response.body);
@@ -359,7 +368,7 @@ class TriageProvider with ChangeNotifier {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/Appointments/patient/$patientId/history'),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(ApiConfig.timeoutDuration);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

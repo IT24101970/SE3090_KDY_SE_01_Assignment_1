@@ -3,15 +3,7 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   // Default base URL for ASP.NET Core API server
   static String get baseUrl {
-    if (kReleaseMode) {
-      return 'https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net/api';
-    } else if (kIsWeb) {
-      return 'http://localhost:5066/api';
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5066/api';
-    } else {
-      return 'http://localhost:5066/api';
-    }
+    return 'https://channel-center-api-c3hkfmhfdhe5gghb.eastasia-01.azurewebsites.net/api';
   }
 
   // Auth endpoints
@@ -37,5 +29,5 @@ class ApiConfig {
   static String get appointmentsUrl => '$baseUrl/appointments';
 
   // Request timeout
-  static const Duration timeoutDuration = Duration(seconds: 10);
+  static const Duration timeoutDuration = Duration(seconds: 25);
 }
