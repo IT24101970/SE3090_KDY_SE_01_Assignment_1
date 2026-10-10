@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/triage_models.dart';
+import '../services/local_notification_service.dart';
 
 class TriageProvider with ChangeNotifier {
   final String baseUrl;
@@ -155,6 +156,13 @@ class TriageProvider with ChangeNotifier {
       _workflowSteps[0].status = WorkflowStepStatus.completed;
       _workflowSteps[0].detail = 'Appointment #$appointmentId created with patientId=$patientId and reasonForVisit.';
       notifyListeners();
+
+      // Trigger instant native OS status bar notification popup
+      LocalNotificationService.showNotification(
+        id: appointmentId,
+        title: '📋 Appointment Registered (#$appointmentId)',
+        body: 'Your appointment request for "$reasonForVisit" was registered & processed by AI Triage.',
+      );
 
       // ───────────────────────────────────────────────────────────────────────
       // STEP 2: Component 1 AI decodes symptoms & populates RawSymptoms in TriageAssessments

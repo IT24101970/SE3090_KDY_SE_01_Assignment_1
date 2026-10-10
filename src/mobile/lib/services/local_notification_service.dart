@@ -6,6 +6,15 @@ class LocalNotificationService {
 
   static bool _isInitialized = false;
 
+  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+    'channel_center_alerts_v2', // channel id
+    'ChannelCenter Notifications', // channel name
+    description: 'High-priority emergency & appointment notifications for ChannelCenter Healthcare System',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+  );
+
   /// Initializes system notification channels for Android
   static Future<void> initialize() async {
     if (_isInitialized) return;
@@ -22,16 +31,18 @@ class LocalNotificationService {
         initializationSettings,
       );
 
-      // Request notification permissions for Android 13+ (API 33+)
       final androidPlugin = _notificationsPlugin
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       if (androidPlugin != null) {
+        // Explicitly register high-importance notification channel with Android system OS
+        await androidPlugin.createNotificationChannel(_channel);
+        // Request notification permissions for Android 13+ (API 33+)
         await androidPlugin.requestNotificationsPermission();
       }
 
       _isInitialized = true;
     } catch (_) {
-      // Graceful fallback if notification plugin fails on non-standard device
+      // Graceful fallback
     }
   }
 
@@ -46,18 +57,20 @@ class LocalNotificationService {
       await initialize();
     }
 
-    const AndroidNotificationDetails androidNotificationDetails =
+    final AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
-      'channel_center_alerts',
-      'ChannelCenter Notifications',
-      channelDescription: 'Alerts and notifications for ChannelCenter Healthcare System',
+      _channel.id,
+      _channel.name,
+      channelDescription: _channel.description,
       importance: Importance.max,
       priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
       showWhen: true,
       icon: '@mipmap/ic_launcher',
     );
 
-    const NotificationDetails notificationDetails = NotificationDetails(
+    final NotificationDetails notificationDetails = NotificationDetails(
       android: androidNotificationDetails,
     );
 
